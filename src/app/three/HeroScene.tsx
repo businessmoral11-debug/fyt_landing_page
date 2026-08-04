@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame, useThree, type RootState } from "@react-three/fiber";
+import { memo, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame, type RootState } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -364,93 +364,122 @@ interface StarLayerProps {
   speedPxPerSec: number;
 }
 
+interface StarLayerData {
+  geometry: THREE.BufferGeometry;
+  material: THREE.ShaderMaterial;
+  width: number;
+  speed: number;
+}
+
 // One depth layer of the starfield: a tiled, seamlessly-wrapping field of
 // THREE.Points. Two copies of the same geometry sit side by side inside a
-// group (`width` apart, exactly matching the geometry's own random spread —
-// see the position generation below), and only the group's `position.x` is
-// ever touched per frame (a single transform, GPU-friendly, same discipline
-// as the asteroid drift animation). When the group has scrolled by exactly
-// one tile width the modulo wrap snaps it back — because both tiles are the
-// same star pattern, the wrap is visually identical to the frame before it:
-// no popping, no flash, no regeneration.
+// group (`width` apart, exactly matching the geometry's own random spread),
+// and only the group's `position.x` is ever touched per frame.
+//
+// Everything else — the Float32Arrays, the BufferGeometry, the
+// ShaderMaterial — is built exactly once, on the very first useFrame tick,
+// and stored in a plain ref (`dataRef`), never in React state. This is
+// deliberately NOT a useMemo(): useMemo still re-runs its factory whenever
+// its dependency values change identity, and this component has no props
+// that should ever legitimately do that mid-session, so building inside the
+// render loop's first tick (which never re-executes, and is completely
+// outside React's render/commit cycle) is what actually guarantees the
+// geometry is independent of every possible React re-render — including
+// ones unrelated to this component (e.g. a parent re-rendering for a page
+// scroll reason that has nothing to do with the starfield). Steady-state,
+// every subsequent frame does exactly one thing: advance and wrap
+// `group.position.x` — no allocations, no attribute writes, no state
+// updates.
 function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec }: StarLayerProps) {
-  const { camera, viewport, size, gl } = useThree();
+  const group = useRef<THREE.Group>(null);
+  const tileA = useRef<THREE.Points>(null);
+  const tileB = useRef<THREE.Points>(null);
+  const dataRef = useRef<StarLayerData | null>(null);
 
-  const { width, height, pxPerUnit } = useMemo(() => {
-    const vp = viewport.getCurrentViewport(camera, [0, 0, depth]);
-    // 35% margin beyond the visible frustum at this depth so a tile never
-    // runs out of stars at the edges, even on very wide viewports.
-    return { width: vp.width * 1.35, height: vp.height * 1.35, pxPerUnit: size.width / vp.width };
-  }, [viewport, camera, depth, size.width]);
+  useFrame((state, delta) => {
+    if (!dataRef.current) {
+      const { camera, viewport, size, gl } = state;
+      const vp = viewport.getCurrentViewport(camera, [0, 0, depth]);
+      // 35% margin beyond the visible frustum at this depth so a tile never
+      // runs out of stars at the edges, even on very wide viewports.
+      const width = vp.width * 1.35;
+      const height = vp.height * 1.35;
+      const pxPerUnit = size.width / vp.width;
+      const speed = speedPxPerSec / pxPerUnit;
 
-  const speed = speedPxPerSec / pxPerUnit;
+      const positions = new Float32Array(count * 3);
+      const colors = new Float32Array(count * 3);
+      const sizes = new Float32Array(count);
+      for (let i = 0; i < count; i++) {
+        positions[i * 3 + 0] = (Math.random() - 0.5) * width;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * height;
+        positions[i * 3 + 2] = depth + (Math.random() - 0.5) * 2;
 
-  const { geometry, material } = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      positions[i * 3 + 0] = (Math.random() - 0.5) * width;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * height;
-      positions[i * 3 + 2] = depth + (Math.random() - 0.5) * 2;
+        // Almost all white; a very small, subtle fraction pale blue/yellow
+        // — never a saturated color.
+        const colorRoll = Math.random();
+        let r = 0.95, g = 0.96, b = 1.0;
+        if (colorRoll < 0.05) {
+          r = 0.75; g = 0.83; b = 1.0; // pale blue
+        } else if (colorRoll < 0.08) {
+          r = 1.0; g = 0.92; b = 0.76; // pale yellow
+        }
+        colors[i * 3 + 0] = r;
+        colors[i * 3 + 1] = g;
+        colors[i * 3 + 2] = b;
 
-      // Almost all white; a very small, subtle fraction pale blue/yellow —
-      // never a saturated color.
-      const colorRoll = Math.random();
-      let r = 0.95, g = 0.96, b = 1.0;
-      if (colorRoll < 0.05) {
-        r = 0.75; g = 0.83; b = 1.0; // pale blue
-      } else if (colorRoll < 0.08) {
-        r = 1.0; g = 0.92; b = 0.76; // pale yellow
+        // ~90% tiny base points, ~9% slightly larger, ~1% "slightly
+        // brighter" (bigger, never glowing) — per the reference composition.
+        const sizeRoll = Math.random();
+        sizes[i] = sizeRoll < 0.01 ? brightSize : sizeRoll < 0.1 ? midSize : baseSize;
       }
-      colors[i * 3 + 0] = r;
-      colors[i * 3 + 1] = g;
-      colors[i * 3 + 2] = b;
 
-      // ~90% tiny base points, ~9% slightly larger, ~1% "slightly
-      // brighter" (bigger, never glowing) — per the reference composition.
-      const sizeRoll = Math.random();
-      sizes[i] = sizeRoll < 0.01 ? brightSize : sizeRoll < 0.1 ? midSize : baseSize;
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
+      geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+
+      const material = new THREE.ShaderMaterial({
+        uniforms: { uPixelRatio: { value: gl.getPixelRatio() } },
+        vertexShader: STAR_VERTEX_SHADER,
+        fragmentShader: STAR_FRAGMENT_SHADER,
+        transparent: true,
+        depthWrite: false,
+      });
+
+      dataRef.current = { geometry, material, width, speed };
+      if (tileA.current) {
+        tileA.current.geometry = geometry;
+        tileA.current.material = material;
+      }
+      if (tileB.current) {
+        tileB.current.geometry = geometry;
+        tileB.current.material = material;
+        tileB.current.position.x = width;
+      }
     }
 
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
-    geo.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
-
-    const mat = new THREE.ShaderMaterial({
-      uniforms: { uPixelRatio: { value: gl.getPixelRatio() } },
-      vertexShader: STAR_VERTEX_SHADER,
-      fragmentShader: STAR_FRAGMENT_SHADER,
-      transparent: true,
-      depthWrite: false,
-    });
-
-    return { geometry: geo, material: mat };
-  }, [count, width, height, depth, baseSize, midSize, brightSize, gl]);
+    const data = dataRef.current;
+    const g = group.current;
+    if (!data || !g) return;
+    g.position.x = (g.position.x + data.speed * delta) % data.width;
+  });
 
   useEffect(() => {
     return () => {
-      geometry.dispose();
-      material.dispose();
+      dataRef.current?.geometry.dispose();
+      dataRef.current?.material.dispose();
     };
-  }, [geometry, material]);
-
-  const group = useRef<THREE.Group>(null);
-
-  useFrame((_, delta) => {
-    const g = group.current;
-    if (!g) return;
-    g.position.x = (g.position.x + speed * delta) % width;
-  });
+  }, []);
 
   return (
     <group ref={group}>
-      <points geometry={geometry} material={material} />
-      <points geometry={geometry} material={material} position={[width, 0, 0]} />
+      <points ref={tileA} />
+      <points ref={tileB} />
     </group>
   );
 }
+const MemoStarLayer = memo(StarLayer);
 
 // Three depth layers — far (smallest, slowest, densest), middle, and near
 // (largest points, fastest, sparsest) — all drifting left → right at an
@@ -458,15 +487,20 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
 // the existing camera parallax in `Rig`, are what create the cinematic
 // depth read; layer placement never overlaps the asteroid field (z ≤ -12,
 // well behind the asteroids at z ≈ -3.6 to -4.8).
+//
+// Props below are literal constants, so `memo` on StarLayer (and on this
+// component itself, from its call site in HeroScene) means page-scroll-
+// driven re-renders of ancestors never propagate into this subtree at all.
 function Starfield() {
   return (
     <>
-      <StarLayer depth={-40} count={2200} baseSize={1.0} midSize={1.4} brightSize={1.8} speedPxPerSec={0.5} />
-      <StarLayer depth={-25} count={900} baseSize={1.2} midSize={1.7} brightSize={2.3} speedPxPerSec={0.8} />
-      <StarLayer depth={-15} count={220} baseSize={1.6} midSize={2.1} brightSize={3.0} speedPxPerSec={1.2} />
+      <MemoStarLayer depth={-40} count={2200} baseSize={1.0} midSize={1.4} brightSize={1.8} speedPxPerSec={0.5} />
+      <MemoStarLayer depth={-25} count={900} baseSize={1.2} midSize={1.7} brightSize={2.3} speedPxPerSec={0.8} />
+      <MemoStarLayer depth={-15} count={220} baseSize={1.6} midSize={2.1} brightSize={3.0} speedPxPerSec={1.2} />
     </>
   );
 }
+const MemoStarfield = memo(Starfield);
 
 // ─── CAMERA RIG ──────────────────────────────────────────────────────────────
 // Multiple slow, layered sine periods (never an obviously repeating loop)
@@ -508,6 +542,7 @@ export default function HeroScene() {
   return (
     <Canvas
       shadows
+      frameloop="always"
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       camera={{ position: [0, 0, 8], fov: 50 }}
@@ -536,7 +571,7 @@ export default function HeroScene() {
       />
       <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
 
-      <Starfield />
+      <MemoStarfield />
       <AsteroidField />
       <Rig mouse={mouse} />
     </Canvas>
