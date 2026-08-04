@@ -3,6 +3,16 @@ import { Canvas, useFrame, type RootState } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
+// ─── ASTEROID SCENE TOGGLE ──────────────────────────────────────────────────
+// Soft-disabled, not deleted: every asteroid asset/component below (models,
+// textures, AsteroidField, Asteroid) stays fully intact so the previous
+// asteroid-field hero can come back by flipping this one flag to `true` —
+// nothing else in this file needs to change to switch back. While disabled,
+// the model/texture preloads are also skipped (no point downloading assets
+// for a scene that isn't rendering) and <AsteroidField/> itself never
+// mounts, so it costs nothing at runtime either.
+const ASTEROIDS_ENABLED = false;
+
 // ─── REAL ASTEROID ASSETS ────────────────────────────────────────────────────
 // Real, photogrammetry-scanned rock models (Poly Haven's "Moon Rock" set —
 // CC0-licensed, no attribution required, no login/API key needed) — not
@@ -32,17 +42,19 @@ const ASTEROID_MODEL_URLS = {
 const ROCK2_DISPLACEMENT_URL = "/models/moon-rock-02/textures/moon_rock_02_disp_2k.jpg";
 const ROCK5_DISPLACEMENT_URL = "/models/moon-rock-05/textures/moon_rock_05_disp_2k.jpg";
 
-useGLTF.preload(ASTEROID_MODEL_URLS.rock1);
-useGLTF.preload(ASTEROID_MODEL_URLS.rock2);
-useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
-useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
-useGLTF.preload(ASTEROID_MODEL_URLS.rock5Hi);
-// The two displacement maps were being fetched lazily on first render inside
-// AsteroidField's useTexture() calls — preloaded here too so every asset
-// (models + textures) starts downloading at module-evaluation time, not
-// staggered behind component mount.
-useTexture.preload(ROCK2_DISPLACEMENT_URL);
-useTexture.preload(ROCK5_DISPLACEMENT_URL);
+if (ASTEROIDS_ENABLED) {
+  useGLTF.preload(ASTEROID_MODEL_URLS.rock1);
+  useGLTF.preload(ASTEROID_MODEL_URLS.rock2);
+  useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
+  useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
+  useGLTF.preload(ASTEROID_MODEL_URLS.rock5Hi);
+  // The two displacement maps were being fetched lazily on first render inside
+  // AsteroidField's useTexture() calls — preloaded here too so every asset
+  // (models + textures) starts downloading at module-evaluation time, not
+  // staggered behind component mount.
+  useTexture.preload(ROCK2_DISPLACEMENT_URL);
+  useTexture.preload(ROCK5_DISPLACEMENT_URL);
+}
 
 interface AsteroidSpec {
   key: string;
@@ -508,6 +520,333 @@ function Starfield() {
 }
 const MemoStarfield = memo(Starfield);
 
+// ─── CINEMATIC ATMOSPHERE ────────────────────────────────────────────────────
+// Replaces the asteroid field visually (see ASTEROIDS_ENABLED above) with an
+// elegant, minimal space atmosphere — soft aurora/nebula, a faint center
+// glow, a slow radar sweep, and a few drifting dust motes. Everything here is
+// pure procedural geometry/shaders (no textures fetched over the network, no
+// GLTF), so none of it needs Suspense and all of it is ready on the very
+// first frame — satisfying "background ready before hero text appears" for
+// free, the same way Starfield already did.
+//
+// Every material below follows the same rule the rest of this file already
+// established for AsteroidField/StarLayer: build the geometry/material
+// exactly ONCE (inside the first useFrame tick, cached in a ref — never
+// useMemo, which can re-run on unrelated re-renders) and, every frame after
+// that, touch nothing but a uniform value or a transform — never rebuild
+// geometry, never allocate.
+
+// A soft, slowly-morphing glow blob — reused for BOTH the aurora (behind the
+// headline) and the nebula (a second, larger/fainter/slower layer elsewhere
+// in the frame) via different props, rather than two separate shaders for
+// what is visually the same technique at different settings.
+const AURORA_VERTEX_SHADER = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const AURORA_FRAGMENT_SHADER = /* glsl */ `
+  precision mediump float;
+  uniform float uTime;
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  uniform float uSpeed;
+  varying vec2 vUv;
+  void main() {
+    vec2 uv = vUv - 0.5;
+    float t = uTime * uSpeed;
+    // Two soft, independently-drifting blobs whose overlap is what reads as
+    // "morphing" — no noise texture needed, just slow sine-warped offsets.
+    vec2 c1 = vec2(sin(t * 0.7) * 0.18, cos(t * 0.5) * 0.12);
+    vec2 c2 = vec2(sin(t * 0.42 + 2.1) * 0.22, cos(t * 0.6 + 1.3) * 0.16);
+    float d1 = length(uv - c1);
+    float d2 = length(uv - c2);
+    float band = smoothstep(0.5, 0.0, d1) * 0.65 + smoothstep(0.42, 0.0, d2) * 0.55;
+    gl_FragColor = vec4(uColor, band * uOpacity);
+  }
+`;
+
+interface AuroraData {
+  geometry: THREE.PlaneGeometry;
+  material: THREE.ShaderMaterial;
+}
+
+function Aurora({
+  position,
+  scale,
+  color,
+  opacity,
+  speed,
+}: {
+  position: [number, number, number];
+  scale: number;
+  color: string;
+  opacity: number;
+  speed: number;
+}) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const dataRef = useRef<AuroraData | null>(null);
+
+  useFrame(({ clock }) => {
+    if (!dataRef.current) {
+      const geometry = new THREE.PlaneGeometry(1, 1);
+      const material = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 },
+          uColor: { value: new THREE.Color(color) },
+          uOpacity: { value: opacity },
+          uSpeed: { value: speed },
+        },
+        vertexShader: AURORA_VERTEX_SHADER,
+        fragmentShader: AURORA_FRAGMENT_SHADER,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      dataRef.current = { geometry, material };
+      if (mesh.current) {
+        mesh.current.geometry = geometry;
+        mesh.current.material = material;
+      }
+    }
+    dataRef.current.material.uniforms.uTime.value = clock.getElapsedTime();
+  });
+
+  useEffect(() => {
+    return () => {
+      dataRef.current?.geometry.dispose();
+      dataRef.current?.material.dispose();
+    };
+  }, []);
+
+  return <mesh ref={mesh} position={position} scale={scale} />;
+}
+const MemoAurora = memo(Aurora);
+
+// Soft center glow — a round bloom blended with a taller, narrower "shaft"
+// at the same origin, together reading as "a soft light source with a
+// faint volumetric column" without an actual raymarched volumetric-light
+// technique (unnecessary weight for how subtle this needs to be). Built
+// from a single procedurally-generated radial-gradient CanvasTexture
+// (created once, not per frame) rather than a custom shader — this element
+// is meant to be near-static, so there's no morphing math to justify one.
+function createRadialGlowTexture(): THREE.CanvasTexture {
+  const size = 256;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+  const gradient = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+  gradient.addColorStop(0, "rgba(210,225,255,1)");
+  gradient.addColorStop(0.35, "rgba(130,175,255,0.55)");
+  gradient.addColorStop(1, "rgba(60,120,255,0)");
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, size, size);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.needsUpdate = true;
+  return texture;
+}
+
+interface CenterGlowData {
+  texture: THREE.CanvasTexture;
+  roundMaterial: THREE.SpriteMaterial;
+  shaftMaterial: THREE.SpriteMaterial;
+}
+
+function CenterGlow({ position }: { position: [number, number, number] }) {
+  const round = useRef<THREE.Sprite>(null);
+  const shaft = useRef<THREE.Sprite>(null);
+  const dataRef = useRef<CenterGlowData | null>(null);
+
+  useFrame(({ clock }) => {
+    if (!dataRef.current) {
+      const texture = createRadialGlowTexture();
+      const roundMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.16 });
+      const shaftMaterial = new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.07 });
+      dataRef.current = { texture, roundMaterial, shaftMaterial };
+      if (round.current) round.current.material = roundMaterial;
+      if (shaft.current) shaft.current.material = shaftMaterial;
+    }
+    // Barely-there breathing — "blend naturally", not "pulse".
+    const t = clock.getElapsedTime();
+    const breathe = 0.85 + Math.sin(t * 0.15) * 0.15;
+    dataRef.current.roundMaterial.opacity = 0.16 * breathe;
+    dataRef.current.shaftMaterial.opacity = 0.07 * breathe;
+  });
+
+  useEffect(() => {
+    return () => {
+      dataRef.current?.texture.dispose();
+      dataRef.current?.roundMaterial.dispose();
+      dataRef.current?.shaftMaterial.dispose();
+    };
+  }, []);
+
+  return (
+    <group position={position}>
+      <sprite ref={round} scale={[5, 5, 1]} />
+      <sprite ref={shaft} scale={[2.2, 8, 1]} />
+    </group>
+  );
+}
+
+// Radar sweep — a single rotating "comet tail" wedge (bright at its leading
+// edge, fading out over ~35% of a turn going backward, hard-cut ahead of
+// it) centered on the same point as the orbit rings' node. One full
+// rotation every 15-20s; opacity stays under 8% (see uOpacity below) so it
+// reads as ambient motion, never as a literal "scanning" sci-fi HUD.
+const RADAR_VERTEX_SHADER = /* glsl */ `
+  varying vec2 vUv;
+  void main() {
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+const RADAR_FRAGMENT_SHADER = /* glsl */ `
+  precision mediump float;
+  uniform vec3 uColor;
+  uniform float uOpacity;
+  varying vec2 vUv;
+  void main() {
+    vec2 uv = vUv - 0.5;
+    float dist = length(uv);
+    if (dist > 0.5) discard;
+    float angle = atan(uv.y, uv.x);
+    // Trail fades out over ~35% of a turn behind the leading edge (angle 0);
+    // nothing ahead of the leading edge at all (hard cut, angle > 0).
+    float trail = angle > 0.0 ? 0.0 : clamp(1.0 + angle / (3.14159265 * 0.35), 0.0, 1.0);
+    float radial = smoothstep(0.5, 0.08, dist);
+    gl_FragColor = vec4(uColor, trail * radial * uOpacity);
+  }
+`;
+const RADAR_PERIOD_S = 18; // within the requested 15-20s window
+
+interface RadarData {
+  geometry: THREE.PlaneGeometry;
+  material: THREE.ShaderMaterial;
+}
+
+function RadarSweep({ position }: { position: [number, number, number] }) {
+  const mesh = useRef<THREE.Mesh>(null);
+  const dataRef = useRef<RadarData | null>(null);
+
+  useFrame(({ clock }) => {
+    if (!dataRef.current) {
+      const geometry = new THREE.PlaneGeometry(1, 1);
+      const material = new THREE.ShaderMaterial({
+        uniforms: { uColor: { value: new THREE.Color("#5b9dff") }, uOpacity: { value: 0.07 } },
+        vertexShader: RADAR_VERTEX_SHADER,
+        fragmentShader: RADAR_FRAGMENT_SHADER,
+        transparent: true,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+      });
+      dataRef.current = { geometry, material };
+      if (mesh.current) {
+        mesh.current.geometry = geometry;
+        mesh.current.material = material;
+      }
+    }
+    if (mesh.current) {
+      mesh.current.rotation.z = -(clock.getElapsedTime() / RADAR_PERIOD_S) * Math.PI * 2;
+    }
+  });
+
+  useEffect(() => {
+    return () => {
+      dataRef.current?.geometry.dispose();
+      dataRef.current?.material.dispose();
+    };
+  }, []);
+
+  return <mesh ref={mesh} position={position} scale={9} />;
+}
+
+// Dust — a handful of soft, independently-floating motes (deliberately NOT
+// the Starfield technique: dust needs soft/blurred edges and gentle
+// multi-axis drift, where stars need crisp points and a one-directional
+// scroll). Motion is entirely in the vertex shader (a per-point sine drift
+// keyed off a random "seed" attribute) so, same as the aurora/radar above,
+// the only per-frame CPU-side work is a single uTime uniform write.
+const DUST_VERTEX_SHADER = /* glsl */ `
+  attribute float aSeed;
+  uniform float uTime;
+  uniform float uPixelRatio;
+  varying float vSeed;
+  void main() {
+    vec3 pos = position;
+    pos.x += sin(uTime * 0.05 + aSeed * 6.2831) * 0.7;
+    pos.y += cos(uTime * 0.04 + aSeed * 3.14159) * 0.5;
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    gl_PointSize = (5.0 + aSeed * 3.0) * uPixelRatio;
+    vSeed = aSeed;
+  }
+`;
+const DUST_FRAGMENT_SHADER = /* glsl */ `
+  precision mediump float;
+  uniform float uTime;
+  varying float vSeed;
+  void main() {
+    vec2 uv = gl_PointCoord - 0.5;
+    float d = length(uv);
+    float shape = smoothstep(0.5, 0.0, d);
+    float twinkle = 0.55 + 0.45 * sin(uTime * 0.15 + vSeed * 12.0);
+    gl_FragColor = vec4(0.75, 0.85, 1.0, shape * twinkle * 0.06);
+  }
+`;
+const DUST_COUNT = 40;
+
+interface DustData {
+  geometry: THREE.BufferGeometry;
+  material: THREE.ShaderMaterial;
+}
+
+function Dust() {
+  const points = useRef<THREE.Points>(null);
+  const dataRef = useRef<DustData | null>(null);
+
+  useFrame(({ clock, gl }) => {
+    if (!dataRef.current) {
+      const positions = new Float32Array(DUST_COUNT * 3);
+      const seeds = new Float32Array(DUST_COUNT);
+      for (let i = 0; i < DUST_COUNT; i++) {
+        positions[i * 3 + 0] = (Math.random() - 0.5) * 16;
+        positions[i * 3 + 1] = (Math.random() - 0.5) * 10;
+        positions[i * 3 + 2] = -2 - Math.random() * 6;
+        seeds[i] = Math.random();
+      }
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute("aSeed", new THREE.BufferAttribute(seeds, 1));
+      const material = new THREE.ShaderMaterial({
+        uniforms: { uTime: { value: 0 }, uPixelRatio: { value: gl.getPixelRatio() } },
+        vertexShader: DUST_VERTEX_SHADER,
+        fragmentShader: DUST_FRAGMENT_SHADER,
+        transparent: true,
+        depthWrite: false,
+      });
+      dataRef.current = { geometry, material };
+      if (points.current) {
+        points.current.geometry = geometry;
+        points.current.material = material;
+      }
+    }
+    dataRef.current.material.uniforms.uTime.value = clock.getElapsedTime();
+  });
+
+  useEffect(() => {
+    return () => {
+      dataRef.current?.geometry.dispose();
+      dataRef.current?.material.dispose();
+    };
+  }, []);
+
+  return <points ref={points} />;
+}
+
 // ─── CAMERA RIG ──────────────────────────────────────────────────────────────
 // Multiple slow, layered sine periods (never an obviously repeating loop)
 // plus a lerped, low-strength mouse-parallax offset, smoothed and never
@@ -526,30 +865,31 @@ function Rig({ mouse }: { mouse: React.RefObject<{ x: number; y: number }> }) {
   return null;
 }
 
-// Cinematic deep-space hero backdrop, built around real photogrammetry-
-// scanned rock assets (see ASTEROID_MODEL_URLS) rather than any procedural
-// geometry: a realistic THREE.Points starfield (Starfield) behind the fixed
-// 6-asteroid composition (AsteroidField), with slow cinematic camera drift
-// and mouse parallax. Rendered as a background layer behind the existing
-// orbital radar stage (HeroStage in App.tsx) — see HeroSceneGate for the
-// desktop/reduced-motion gating that decides whether this mounts at all.
+// Cinematic hero backdrop. As of ASTEROIDS_ENABLED = false above, this is a
+// minimal, elegant space atmosphere — the realistic THREE.Points starfield
+// (Starfield, unchanged and still the "tiny star" look), a soft morphing
+// aurora + fainter nebula layer, a faint center bloom/volumetric glow behind
+// the orbit stage's node, a slow radar sweep, and a handful of drifting dust
+// motes — with the same slow cinematic camera drift and mouse parallax as
+// before (Rig, untouched). Rendered as a background layer behind the
+// existing orbital radar stage (HeroStage in App.tsx) — see HeroSceneGate
+// for the desktop/reduced-motion gating that decides whether this mounts at
+// all. AsteroidField still renders too, gated behind ASTEROIDS_ENABLED, so
+// flipping that one flag restores the previous scene exactly.
 //
 // Suspense sits HERE, inside the Canvas, wrapped only around AsteroidField —
 // not around the whole scene, and not above the Canvas in HeroSceneGate.
 // AsteroidField is the only part of this scene that depends on any network
-// asset (useGLTF/useTexture); Starfield is pure procedural geometry with no
-// external files at all. Putting Suspense above the Canvas (the previous
-// setup) meant React held back the Canvas's own DOM node — the whole scene,
+// asset (useGLTF/useTexture); every other element here — Starfield and all
+// of the new atmosphere below — is pure procedural geometry/shaders with no
+// external files and no Suspense dependency at all, so it's guaranteed
+// ready on the first frame regardless of the asteroid toggle. Putting
+// Suspense above the Canvas (the previous setup, before an earlier fix)
+// meant React held back the Canvas's own DOM node — the whole scene,
 // lighting included — until every GLTF/texture had finished loading, which
-// is what produced the "text appears, then the whole scene pops in a moment
-// later" delay. With the boundary here instead, the Canvas, lights,
-// starfield, and camera rig all mount and paint immediately and
-// unconditionally; only the asteroid meshes specifically wait on their own
-// assets, and since every one of those assets is preloaded at module-
-// evaluation time (see the useGLTF.preload/useTexture.preload calls above),
-// that wait is only ever the genuine, unavoidable network transfer time for
-// files already mid-flight since before the Hero even rendered — not
-// something this component's structure adds on top of it.
+// is what produced a "text appears, then the whole scene pops in a moment
+// later" delay; the boundary stays scoped to AsteroidField alone so that
+// can never happen again, asteroids on or off.
 export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
 
@@ -564,26 +904,30 @@ export default function HeroScene() {
 
   return (
     <Canvas
-      shadows
+      shadows={ASTEROIDS_ENABLED}
       frameloop="always"
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       camera={{ position: [0, 0, 8], fov: 50 }}
       style={{ position: "absolute", inset: 0 }}
     >
-      {/* No HDRI environment map (no texture asset available for one) — a
-          small light rig stands in: weak cool ambient, a warm-white key
-          light (slightly stronger now, for more defined specular pickup on
-          the rock surfaces) casting real shadow maps across the asteroid
-          field, a soft blue rim light from the opposite side, and a very
-          weak warm hemisphere fill so shadow sides never go fully flat. */}
+      {/* This light rig exists solely for AsteroidField's PBR materials
+          (real photogrammetry rocks need real lighting to read correctly) —
+          none of the new atmosphere below uses standard/lit materials at
+          all (Points, Sprites, and unlit ShaderMaterials all ignore scene
+          lights entirely), so the shadow-casting machinery specifically is
+          gated off with the asteroid toggle (see ASTEROIDS_ENABLED above):
+          zero shadow-casters means a shadow-map pass would be pure wasted
+          GPU work. The lights themselves stay mounted either way — cheap,
+          and harmless to anything unlit — so flipping the toggle back on
+          needs no changes here. */}
       <ambientLight intensity={0.14} color="#33507f" />
       <hemisphereLight args={["#fff3e2", "#141c34", 0.16]} />
       <directionalLight
         position={[6, 5, 6]}
         intensity={1.3}
         color="#fff3e2"
-        castShadow
+        castShadow={ASTEROIDS_ENABLED}
         shadow-mapSize={[1024, 1024]}
         shadow-camera-near={1}
         shadow-camera-far={30}
@@ -595,9 +939,29 @@ export default function HeroScene() {
       <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
 
       <MemoStarfield />
-      <Suspense fallback={null}>
-        <AsteroidField />
-      </Suspense>
+
+      {/* Aurora behind the headline (upper frame) + a fainter, larger,
+          slower nebula layer further back and off-center — same component,
+          different tuning, so they read as two distinct atmospheric layers
+          rather than one obvious blob. Both well under the requested
+          6-10% opacity. */}
+      <MemoAurora position={[0, 2.2, -14]} scale={14} color="#5b8fff" opacity={0.09} speed={1} />
+      <MemoAurora position={[-3, -0.5, -20]} scale={22} color="#4d7fe0" opacity={0.05} speed={0.6} />
+
+      {/* Soft bloom + faint volumetric column behind the orbit stage's
+          center node (HeroStage in App.tsx renders that node in DOM/SVG at
+          roughly this same screen position; this glow sits behind it in
+          the WebGL layer). */}
+      <CenterGlow position={[0, -1.8, -3]} />
+      <RadarSweep position={[0, -1.8, -2.8]} />
+
+      <Dust />
+
+      {ASTEROIDS_ENABLED && (
+        <Suspense fallback={null}>
+          <AsteroidField />
+        </Suspense>
+      )}
       <Rig mouse={mouse} />
     </Canvas>
   );
