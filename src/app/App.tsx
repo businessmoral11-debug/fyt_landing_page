@@ -45,10 +45,31 @@ import { useLiveRewardsFeed, deriveInitials, timeAgo } from "@/app/liveRewardsFe
 import imgDashboardMockup from "@/assets/images/dashboard_floating_3d_v2.png";
 import { motion, useScroll, useTransform, useMotionTemplate, useReducedMotion, useInView, type MotionValue } from "motion/react";
 import { AnimatePresence } from "motion/react";
+import { useMotionValue, useSpring, useMotionValueEvent } from "motion/react";
 import { useMagnetic } from "@/app/magnetic";
 import { useScrollShrink } from "@/app/navScroll";
 import { useTilt } from "@/app/tilt";
+import { useCursorGlow } from "@/app/cursorGlow";
 import { AmbientBlob } from "@/app/ambient";
+import {
+  proofRevealContainer,
+  proofRevealItem,
+  PROOF_FLOAT_Y,
+  PROOF_FLOAT_TRANSITION,
+  PROOF_AMBIENT_GLOW_OPACITY,
+  PROOF_AMBIENT_GLOW_TRANSITION,
+  PROOF_CARD_HOVER_TRANSITION,
+  proofCardHover,
+  PROOF_ICON_MOTION,
+  PROOF_ICON_NETWORK_RING_TRANSITION,
+  proofIconNetworkRing,
+  PROOF_BUTTON_SWEEP_TRANSITION,
+  proofButtonSweep,
+  PROOF_DATA_LINES,
+  PROOF_DATA_LINE_LIGHT_CYCLE_S,
+  PROOF_DATA_LINE_LIGHT_DURATION_S,
+  PROOF_DATA_LINE_LIGHT_STAGGER_S,
+} from "@/app/proofInNumbersMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
 import { useMonotonicProgress } from "@/app/scrollProgress";
@@ -1433,106 +1454,290 @@ function ProofStatIcon({ kind }: { kind: "dollar" | "people" | "globe" | "lightn
   return _exhaustive;
 }
 
+// Count-up now springs to its target instead of a hand-rolled cubic-ease-out
+// RAF loop — same `parseCountUpSegments`/`renderCountUp` source of truth
+// (countUp.ts, unchanged), but progress is driven by a Framer Motion spring
+// for a premium "settling" feel rather than a linear/eased tween. The
+// rendered text is written straight to the DOM (`ref.current.textContent`)
+// on every spring tick via useMotionValueEvent — never through React state
+// — since this is the one place in the section that must update on every
+// animation frame; see proofInNumbersMotion.ts's shimmer comment for the
+// same "no React state in the render loop" rationale applied here.
 function CountUpStat({ value }: { value: string }) {
   const ref = useRef<HTMLParagraphElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   const prefersReducedMotion = useReducedMotion();
   const segments = useMemo(() => parseCountUpSegments(value), [value]);
-  const [display, setDisplay] = useState(() => (prefersReducedMotion ? value : renderCountUp(segments, 0)));
+  const progress = useMotionValue(0);
+  const spring = useSpring(progress, { stiffness: 60, damping: 16, mass: 1 });
 
   useEffect(() => {
-    if (!inView) return;
-    if (prefersReducedMotion) {
-      setDisplay(value);
-      return;
-    }
-    const duration = 1200;
-    const start = performance.now();
-    let frame: number;
-    function tick(now: number) {
-      const progress = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setDisplay(renderCountUp(segments, eased));
-      if (progress < 1) frame = requestAnimationFrame(tick);
-    }
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [inView, prefersReducedMotion, segments, value]);
+    if (!ref.current) return;
+    ref.current.textContent = prefersReducedMotion ? value : renderCountUp(segments, 0);
+  }, [prefersReducedMotion, segments, value]);
+
+  useEffect(() => {
+    if (!inView || prefersReducedMotion) return;
+    progress.set(1);
+  }, [inView, prefersReducedMotion, progress]);
+
+  useMotionValueEvent(spring, "change", (v) => {
+    if (prefersReducedMotion || !ref.current) return;
+    ref.current.textContent = renderCountUp(segments, v);
+  });
 
   return (
-    <p ref={ref} className="font-['DM_Sans',sans-serif] font-medium text-[#eef0f6] text-[24px] lg:text-[28px] tracking-[-0.02em]">
-      {display}
+    <p
+      ref={ref}
+      data-shimmer={prefersReducedMotion ? undefined : "true"}
+      className="proof-stat-number font-['DM_Sans',sans-serif] font-medium text-[#eef0f6] text-[24px] lg:text-[28px] tracking-[-0.02em]"
+    >
+      {prefersReducedMotion ? value : renderCountUp(segments, 0)}
     </p>
   );
 }
 
-function ProofInNumbers() {
+// Tiny tiled fractal-noise texture, inlined as a data-URI so no new asset
+// file is needed — applied at 3.5% opacity with mix-blend "overlay" as part
+// of the section's "trading-terminal" background texture (grid + vignette +
+// noise), all deliberately near-invisible, additive depth only.
+const PROOF_NOISE_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>" +
+  "<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter>" +
+  "<rect width='100%' height='100%' filter='url(%23n)'/></svg>";
+
+// One stat card: owns its own cursor-glow hook (each card tracks its own
+// pointer position independently — useCursorGlow can't be called inside a
+// .map() callback, hence the dedicated component) plus its icon's idle
+// animation and the hover/reveal motion. `variants={proofRevealItem}` (no
+// own initial/whileInView) is what lets this card participate in
+// ProofInNumbers' single staggered reveal sequence as items 5-8.
+function ProofStatCard({
+  value,
+  label,
+  icon,
+  prefersReducedMotion,
+}: {
+  value: string;
+  label: string;
+  icon: "dollar" | "people" | "globe" | "lightning";
+  prefersReducedMotion: boolean | null;
+}) {
+  const glow = useCursorGlow<HTMLDivElement>();
+  const iconMotion = PROOF_ICON_MOTION[icon];
+
   return (
-    <div className="bg-[#0b0c11] relative shrink-0 w-full">
+    <motion.div
+      ref={glow.ref}
+      onMouseMove={glow.onMouseMove}
+      onMouseLeave={glow.onMouseLeave}
+      variants={proofRevealItem}
+      whileHover={prefersReducedMotion ? undefined : proofCardHover}
+      transition={PROOF_CARD_HOVER_TRANSITION}
+      className="group relative flex flex-col gap-[10px] items-center justify-center overflow-hidden rounded-[14px] px-[16px] py-[24px] lg:py-[28px] text-center"
+      style={{
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "linear-gradient(155deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015) 60%)",
+        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 0 0 32px rgba(59,130,246,0.04), 0 18px 40px -22px rgba(0,0,0,0.55)",
+      }}
+    >
+      {/* cursor-following highlight — position only, no tilt/rotation */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+        style={{ background: "radial-gradient(160px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(96,165,250,0.14), transparent 70%)" }}
+      />
+      {/* top reflection sliver */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)" }}
+      />
+      <div className="relative flex items-center justify-center rounded-full size-[36px]" style={{ border: "1px solid rgba(96,165,250,0.35)" }}>
+        {icon === "people" && !prefersReducedMotion && (
+          <motion.span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full"
+            style={{ border: "1px solid rgba(96,165,250,0.55)" }}
+            animate={proofIconNetworkRing}
+            transition={PROOF_ICON_NETWORK_RING_TRANSITION}
+          />
+        )}
+        <motion.div animate={prefersReducedMotion ? undefined : iconMotion.animate} transition={iconMotion.transition}>
+          <ProofStatIcon kind={icon} />
+        </motion.div>
+      </div>
+      <CountUpStat value={value} />
+      <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px] tracking-[0.5px] uppercase">{label}</p>
+    </motion.div>
+  );
+}
+
+function ProofInNumbers() {
+  const prefersReducedMotion = useReducedMotion();
+
+  return (
+    <div
+      className="bg-[#0b0c11] relative shrink-0 w-full"
+      style={{
+        // Soft top/bottom fade instead of a hard section edge — reveals the
+        // page's own near-identical dark background (--fyt-bg-primary /
+        // App.tsx's root #070810) rather than a specific neighbor color.
+        maskImage: "linear-gradient(to bottom, transparent 0, black 48px, black calc(100% - 48px), transparent 100%)",
+        WebkitMaskImage: "linear-gradient(to bottom, transparent 0, black 48px, black calc(100% - 48px), transparent 100%)",
+      }}
+    >
+      {/* Premium trading-terminal texture: faint grid + vignette + noise,
+          every layer under ~4% opacity so it only ever reads as depth. */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px), " +
+            "linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px), " +
+            "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.04) 100%)",
+          backgroundSize: "48px 48px, 48px 48px, 100% 100%",
+        }}
+      />
+      <div
+        className="absolute inset-0 pointer-events-none"
+        aria-hidden="true"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(PROOF_NOISE_SVG)}")`,
+          backgroundRepeat: "repeat",
+          backgroundSize: "120px 120px",
+          opacity: 0.035,
+          mixBlendMode: "overlay",
+        }}
+      />
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <AmbientBlob className="left-[10%] top-[15%]" color="rgba(59,130,246,0.16)" size={500} duration={21} />
         <AmbientBlob className="right-[8%] bottom-[5%]" color="rgba(96,165,250,0.1)" size={420} duration={17} />
+        {/* Slow-breathing ambient glow centered behind the whole panel. */}
+        <motion.div
+          className="absolute left-1/2 top-1/2 rounded-full"
+          style={{
+            width: 900,
+            height: 500,
+            transform: "translate(-50%, -50%)",
+            background: "radial-gradient(ellipse, rgba(59,130,246,0.5), transparent 70%)",
+            filter: "blur(80px)",
+          }}
+          initial={{ opacity: 0.08 }}
+          animate={prefersReducedMotion ? undefined : { opacity: PROOF_AMBIENT_GLOW_OPACITY }}
+          transition={prefersReducedMotion ? undefined : PROOF_AMBIENT_GLOW_TRANSITION}
+        />
       </div>
       <div className="relative flex flex-col items-center px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
+        {/* Almost-imperceptible idle float for the whole panel — always
+            running (not gated to viewport entry), separate from the
+            one-time staggered reveal below. */}
         <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-80px" }}
-          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full rounded-[20px] p-[24px] lg:p-[48px]"
-          style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
+          className="w-full"
+          animate={prefersReducedMotion ? undefined : { y: PROOF_FLOAT_Y }}
+          transition={prefersReducedMotion ? undefined : PROOF_FLOAT_TRANSITION}
         >
-          <div className="flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center lg:items-stretch">
-            {/* Left: kicker, heading, description, CTA */}
-            <div className="flex-1 flex flex-col gap-[16px] items-start justify-center text-left w-full">
-              <span
-                className="px-[16px] py-[6px] rounded-full text-[#60a5fa] text-[11px] font-['Inter:Semi_Bold',sans-serif] font-semibold tracking-[1.5px] uppercase"
-                style={{ border: "1px solid rgba(59,130,246,0.35)" }}
-              >
-                Proof in Numbers
-              </span>
-              <h2 className="font-['DM_Sans',sans-serif] font-medium text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em]">
-                <span className="block text-[#eef0f6]">Thousands traded.</span>
-                <span className="block text-[#3b82f6]">Millions rewarded.</span>
-              </h2>
-              <p className="font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[15px] lg:text-[16px] leading-[1.6] max-w-[420px]">
-                A global community built on transparent conditions, real progress, and rewards delivered to traders.
-              </p>
-              <HeroCta
-                href="#live-payouts"
-                magneticStrength={0.18}
-                className="mt-[8px] flex items-center gap-[10px] px-[24px] py-[12px] relative rounded-[999px] shrink-0 no-underline"
-                style={PILL_CTA_GRADIENT_STYLE}
-              >
-                <div aria-hidden className="absolute border border-[rgba(156,196,255,0.35)] border-solid inset-0 pointer-events-none rounded-[999px]" />
-                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] text-white whitespace-nowrap">View Live Rewards</p>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                  <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </HeroCta>
-            </div>
-            {/* Right: 2x2 stat grid */}
-            <div className="flex-1 grid grid-cols-2 gap-[12px] lg:gap-[16px] w-full">
-              {PROOF_STATS.map(({ value, label, icon }, i) => (
-                <motion.div
-                  key={label}
-                  initial={{ opacity: 0, y: 16 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-60px" }}
-                  transition={{ duration: 0.5, delay: 0.08 * i, ease: [0.16, 1, 0.3, 1] }}
-                  whileHover={{ y: -4, borderColor: "rgba(96,165,250,0.4)" }}
-                  className="flex flex-col gap-[10px] items-center justify-center rounded-[14px] px-[16px] py-[24px] lg:py-[28px] text-center"
-                  style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true, margin: "-80px" }}
+            variants={proofRevealContainer}
+            className="w-full rounded-[20px] p-[24px] lg:p-[48px]"
+            style={{
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015))",
+              backdropFilter: "blur(14px)",
+              WebkitBackdropFilter: "blur(14px)",
+              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 80px -30px rgba(0,0,0,0.6)",
+            }}
+          >
+            <div className="flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center lg:items-stretch">
+              {/* Left: kicker, heading, description, CTA — reveal items 1-4 */}
+              <div className="flex-1 flex flex-col gap-[16px] items-start justify-center text-left w-full">
+                <motion.span
+                  variants={proofRevealItem}
+                  className="px-[16px] py-[6px] rounded-full text-[#60a5fa] text-[11px] font-['Inter:Semi_Bold',sans-serif] font-semibold tracking-[1.5px] uppercase"
+                  style={{ border: "1px solid rgba(59,130,246,0.35)" }}
                 >
-                  <div className="flex items-center justify-center rounded-full size-[36px]" style={{ border: "1px solid rgba(96,165,250,0.35)" }}>
-                    <ProofStatIcon kind={icon} />
-                  </div>
-                  <CountUpStat value={value} />
-                  <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px] tracking-[0.5px] uppercase">{label}</p>
+                  Proof in Numbers
+                </motion.span>
+                <motion.h2
+                  variants={proofRevealItem}
+                  className="font-['DM_Sans',sans-serif] font-medium text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em]"
+                >
+                  <span className="block text-[#eef0f6]">Thousands traded.</span>
+                  <span className="block text-[#3b82f6]">Millions rewarded.</span>
+                </motion.h2>
+                <motion.p
+                  variants={proofRevealItem}
+                  className="font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[15px] lg:text-[16px] leading-[1.6] max-w-[420px]"
+                >
+                  A global community built on transparent conditions, real progress, and rewards delivered to traders.
+                </motion.p>
+                <motion.div variants={proofRevealItem} className="mt-[8px]">
+                  <HeroCta
+                    href="#live-payouts"
+                    magneticStrength={0.18}
+                    className="flex items-center gap-[10px] px-[24px] py-[12px] relative overflow-hidden rounded-[999px] shrink-0 no-underline transition-shadow duration-300 hover:shadow-[0_12px_45px_-8px_rgba(59,130,246,0.65)]"
+                    style={PILL_CTA_GRADIENT_STYLE}
+                  >
+                    {!prefersReducedMotion && (
+                      <motion.span
+                        aria-hidden="true"
+                        className="absolute inset-y-0 w-1/3 pointer-events-none"
+                        style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent)" }}
+                        initial={{ x: "-120%" }}
+                        animate={proofButtonSweep}
+                        transition={PROOF_BUTTON_SWEEP_TRANSITION}
+                      />
+                    )}
+                    <div aria-hidden className="absolute border border-[rgba(156,196,255,0.35)] border-solid inset-0 pointer-events-none rounded-[999px]" />
+                    <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] text-white whitespace-nowrap">View Live Rewards</p>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                      <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </HeroCta>
                 </motion.div>
-              ))}
+              </div>
+              {/* Right: 2x2 stat grid — reveal items 5-8 */}
+              <div className="flex-1 grid grid-cols-2 gap-[12px] lg:gap-[16px] w-full relative">
+                {/* Extremely faint hub-and-spoke connection lines between the
+                    4 cards, with a small light traveling each one every few
+                    seconds — see PROOF_DATA_LINES. */}
+                <svg
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                  viewBox="0 0 100 100"
+                  preserveAspectRatio="none"
+                  aria-hidden="true"
+                >
+                  {PROOF_DATA_LINES.map((line, i) => (
+                    <g key={i}>
+                      <line x1={line.x1} y1={line.y1} x2={line.x2} y2={line.y2} stroke="rgba(96,165,250,0.08)" strokeWidth="0.3" />
+                      {!prefersReducedMotion && (
+                        <motion.circle
+                          r={0.8}
+                          fill="rgba(147,197,253,0.9)"
+                          initial={{ opacity: 0 }}
+                          animate={{ cx: [line.x1, line.x2], cy: [line.y1, line.y2], opacity: [0, 1, 0] }}
+                          transition={{
+                            duration: PROOF_DATA_LINE_LIGHT_DURATION_S,
+                            repeat: Infinity,
+                            repeatDelay: PROOF_DATA_LINE_LIGHT_CYCLE_S - PROOF_DATA_LINE_LIGHT_DURATION_S,
+                            delay: i * PROOF_DATA_LINE_LIGHT_STAGGER_S,
+                            ease: "easeInOut",
+                          }}
+                        />
+                      )}
+                    </g>
+                  ))}
+                </svg>
+                {PROOF_STATS.map(({ value, label, icon }) => (
+                  <ProofStatCard key={label} value={value} label={label} icon={icon} prefersReducedMotion={prefersReducedMotion} />
+                ))}
+              </div>
             </div>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </div>
