@@ -1192,7 +1192,7 @@ function CardSweep() {
 // don't bob in lockstep — a network of independently-alive nodes, not one
 // synchronized group.
 function ProveSkillCard({ text, floatDelay = 0 }: { text: string; floatDelay?: number }) {
-  const tilt = useTilt<HTMLDivElement>(6);
+  const tilt = useTilt<HTMLDivElement>(4);
   const reduceMotion = useReducedMotion();
   return (
     <motion.div
@@ -1200,9 +1200,9 @@ function ProveSkillCard({ text, floatDelay = 0 }: { text: string; floatDelay?: n
       onMouseMove={tilt.onMouseMove}
       onMouseLeave={tilt.onMouseLeave}
       style={tilt.style}
-      animate={reduceMotion ? undefined : { y: [0, -7, 0] }}
-      transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: floatDelay }}
-      whileHover={{ scale: 1.045, y: -6, transition: { type: "spring", stiffness: 320, damping: 20 } }}
+      animate={reduceMotion ? undefined : { y: [0, -5, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut", delay: floatDelay }}
+      whileHover={{ scale: 1.03, y: -4, transition: { type: "spring", stiffness: 300, damping: 22 } }}
       className="group"
     >
       <div
@@ -1375,7 +1375,7 @@ const PROVE_SKILL_LINE_ANCHORS: readonly [number, number][] = [
   [77, 60], // card 3 — mid-right
   [50, 84], // card 4 — bottom-center
 ];
-const PROVE_SKILL_CORE_ANCHOR: [number, number] = [50, 32];
+const PROVE_SKILL_CORE_ANCHOR: [number, number] = [50, 34];
 
 function ProveSkillConnectorLine({
   anchor, progress, reveal, reduceMotion,
@@ -1480,11 +1480,16 @@ function ProveYourSkill() {
             during the scroll) is different from the static version. */}
         <div ref={scrollRef} className="hidden lg:block relative w-full" style={{ height: `${PROVE_SKILL_SCROLL_HEIGHT_VH}vh` }}>
           <div className="sticky top-0 h-screen flex flex-col items-center justify-center gap-0">
-            <div className="relative w-full" style={{ height: "640px" }}>
+            {/* 900px, up from the first pass's 640px — the extra height is
+                pure breathing room between the two card rows and the core,
+                not new content. Card positions (8% / 56% / 78%) are
+                percentage-based and thus unaffected by this; only the
+                absolute pixel gap between them grows. */}
+            <div className="relative w-full" style={{ height: "900px" }}>
               <ProveSkillNetworkLines progress={revealProgress} reduceMotion={reduceMotion} />
-              <div className="absolute left-1/2 -translate-x-1/2 top-[17%] text-center w-[480px]">
+              <div className="absolute left-1/2 -translate-x-1/2 top-[21%] text-center w-[440px]">
                 <motion.div style={reduceMotion ? undefined : { opacity: coreOpacity }}>
-                  <ProveSkillHeading size="text-[32px] xl:text-[40px]" />
+                  <ProveSkillHeading size="text-[34px] xl:text-[42px]" />
                 </motion.div>
                 {/* Solution panel — same position/size as the core above,
                     stacked via absolute positioning so the two crossfade in
@@ -1495,7 +1500,7 @@ function ProveYourSkill() {
                   aria-hidden={reduceMotion ? true : undefined}
                 >
                   <div
-                    className="relative flex flex-col items-center gap-[14px] rounded-[20px] px-[22px] py-[24px] lg:px-[32px] lg:py-[28px] overflow-hidden h-full justify-center"
+                    className="relative flex flex-col items-center gap-[10px] rounded-[20px] px-[22px] py-[24px] lg:px-[32px] lg:py-[28px] overflow-hidden h-full justify-center"
                     style={{
                       background: "rgba(255,255,255,0.62)",
                       backdropFilter: "blur(20px)",
@@ -1505,7 +1510,6 @@ function ProveYourSkill() {
                     }}
                   >
                     <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px pointer-events-none" style={{ background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)" }} />
-                    <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#3b82f6] text-[12px] tracking-[1.5px] uppercase">The FYT Standard</p>
                     <ul className="flex flex-col gap-[8px] items-center">
                       {PROVE_SKILL_SOLUTIONS.map((label) => (
                         <li key={label} className="flex items-center gap-[8px]">
@@ -1549,16 +1553,6 @@ function ProveYourSkill() {
                 </ProveSkillRevealCard>
               </motion.div>
             </div>
-            <motion.p
-              initial={reduceMotion ? undefined : { opacity: 0, y: 12 }}
-              whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-40px" }}
-              transition={{ duration: 0.6, delay: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="font-['Inter:Regular',sans-serif] font-normal text-[#5b6072] text-[15px] leading-[1.6] text-center max-w-[480px] mt-[24px]"
-            >
-              Traditional prop firms evaluate traders through hidden restrictions and unnecessary limitations.
-              <br /> FYT evaluates what actually matters: your trading performance.
-            </motion.p>
           </div>
         </div>
 
@@ -1581,15 +1575,6 @@ function ProveYourSkill() {
           <div className="sticky top-0 h-[100dvh] flex flex-col items-center justify-center gap-[32px]">
             <div className="text-center px-[8px]">
               <ProveSkillHeading size="text-[28px]" />
-              <motion.p
-                initial={reduceMotion ? undefined : { opacity: 0, y: 10 }}
-                whileInView={reduceMotion ? undefined : { opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-30px" }}
-                transition={{ duration: 0.5, delay: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                className="font-['Inter:Regular',sans-serif] font-normal text-[#5b6072] text-[13px] leading-[1.6] text-center mt-[14px]"
-              >
-                Traditional prop firms evaluate traders through hidden restrictions and unnecessary limitations. FYT evaluates what actually matters: your trading performance.
-              </motion.p>
             </div>
             <div className="flex flex-col gap-[12px] w-full items-center">
               {PROVE_SKILL_CARDS.map((c, i) => (
