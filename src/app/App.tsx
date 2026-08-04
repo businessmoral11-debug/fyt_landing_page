@@ -2269,6 +2269,7 @@ function PanelCard({ children, className }: { children: ReactNode; className: st
     // their own per-property transitions so the float keeps looping while
     // the pulse plays exactly once.
     <motion.div
+      className="h-full"
       animate={prefersReducedMotion ? undefined : { y: pricingCardFloatY, scale: celebrated ? pricingCompletionCardPulse.scale : 1 }}
       transition={
         prefersReducedMotion
@@ -2282,7 +2283,7 @@ function PanelCard({ children, className }: { children: ReactNode; className: st
       }
     >
       <motion.div
-        className={`${className} group flex-col rounded-[16px] relative`}
+        className={`${className} group flex-col rounded-[16px] relative h-full`}
         style={{ border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 44px -20px rgba(0,0,0,0.5)" }}
         initial={{ opacity: 0, y: 20 }}
         whileInView={{ opacity: 1, y: 0 }}
