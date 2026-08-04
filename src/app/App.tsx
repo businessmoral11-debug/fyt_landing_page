@@ -47,6 +47,8 @@ import { motion, useScroll, useTransform, useMotionTemplate, useReducedMotion, u
 import { AnimatePresence } from "motion/react";
 import { useMagnetic } from "@/app/magnetic";
 import { useScrollShrink } from "@/app/navScroll";
+import { useTilt } from "@/app/tilt";
+import { AmbientBlob } from "@/app/ambient";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
 import { useMonotonicProgress } from "@/app/scrollProgress";
@@ -815,15 +817,17 @@ function RevealWords({ text }: { text: string }) {
 // on the secondary (glassy) button so it reads as clearly less dominant than
 // the primary gradient pill.
 function HeroCta({
-  href, magneticStrength, children, style, className,
+  href, magneticStrength, children, style, className, target, rel,
 }: {
-  href: string; magneticStrength: number; children: ReactNode; style?: React.CSSProperties; className: string;
+  href: string; magneticStrength: number; children: ReactNode; style?: React.CSSProperties; className: string; target?: string; rel?: string;
 }) {
   const magnet = useMagnetic<HTMLAnchorElement>(magneticStrength);
   return (
     <motion.a
       ref={magnet.ref}
       href={href}
+      target={target}
+      rel={rel}
       onMouseMove={magnet.onMouseMove}
       onMouseLeave={magnet.onMouseLeave}
       style={{ ...style, x: magnet.style.x, y: magnet.style.y }}
@@ -977,10 +981,36 @@ const PRESS_LOGOS: PressLogo[] = [
   { kind: "badge", alt: "The Trusted Prop Firm", badgeText: "TPF", badgeColor: "#059669", label: ["THE TRUSTED", "PROP FIRM"] },
 ];
 
+// Diagonal light sweep drifting across a dark panel — GPU-friendly (a plain
+// `x` transform, no backgroundPosition paint work), looping with a pause
+// between passes so it reads as an occasional glint rather than a strobe.
+// Renders nothing under reduced motion (not just a paused version of itself).
+function LightSweep() {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) return null;
+  return (
+    <motion.div
+      aria-hidden="true"
+      className="absolute inset-y-0 w-1/3 pointer-events-none"
+      style={{
+        background: "linear-gradient(100deg, transparent 0%, rgba(255,255,255,0.05) 45%, rgba(96,165,250,0.12) 50%, rgba(255,255,255,0.05) 55%, transparent 100%)",
+        willChange: "transform",
+      }}
+      initial={{ x: "-140%" }}
+      animate={{ x: "340%" }}
+      transition={{ duration: 4.5, repeat: Infinity, repeatDelay: 3.5, ease: "easeInOut" }}
+    />
+  );
+}
+
 function renderPressLogo(logo: PressLogo) {
   if (logo.kind === "badge") {
     return (
-      <div key={logo.alt} className="flex items-center gap-[10px] shrink-0">
+      <motion.div
+        key={logo.alt}
+        className="flex items-center gap-[10px] shrink-0 transition-transform duration-300 ease-out hover:-translate-y-[3px]"
+        whileHover={{ scale: 1.04 }}
+      >
         <div
           className="flex items-center justify-center rounded-[8px] shrink-0 px-[6px]"
           style={{ minWidth: 28, height: 28, background: logo.badgeColor }}
@@ -996,10 +1026,20 @@ function renderPressLogo(logo: PressLogo) {
         ) : (
           <span className="font-['Inter:Bold',sans-serif] font-bold text-[#bfc4d1] text-[18px] leading-[22px] whitespace-nowrap">{logo.label}</span>
         )}
-      </div>
+      </motion.div>
     );
   }
-  return <img key={logo.alt} src={logo.src} alt={logo.alt} className="shrink-0 object-contain brightness-0 invert opacity-75" style={{ width: logo.w }} />;
+  return (
+    <motion.img
+      key={logo.alt}
+      src={logo.src}
+      alt={logo.alt}
+      className="shrink-0 object-contain brightness-0 invert opacity-75 transition-[filter,opacity] duration-500 ease-out hover:brightness-100 hover:invert-0 hover:opacity-100"
+      style={{ width: logo.w }}
+      whileHover={{ y: -3, scale: 1.05 }}
+      transition={{ type: "spring", stiffness: 300, damping: 20 }}
+    />
+  );
 }
 
 function FeaturedInDesktopRow() {
@@ -1040,18 +1080,32 @@ function FeaturedInMobileCarousel() {
 }
 
 function FeaturedIn() {
+  const reduceMotion = useReducedMotion();
   return (
     <div className="bg-black relative shrink-0 w-full">
-      <div className="flex flex-col gap-[20px] items-center justify-center px-[20px] py-[40px] lg:px-[80px] lg:pb-[48px]">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <AmbientBlob className="left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" color="rgba(59,130,246,0.14)" size={560} duration={22} />
+      </div>
+      <div className="relative flex flex-col gap-[20px] items-center justify-center px-[20px] py-[40px] lg:px-[80px] lg:pb-[48px]">
         <p className="font-['Inter:Medium',sans-serif] font-medium not-italic text-[#60a5fa] text-[11px] leading-[13px] tracking-[3px]">AS FEATURED IN</p>
-        <div
-          className="relative w-full max-w-[1280px] rounded-[20px] px-[24px] py-[20px] lg:px-0 lg:py-0"
-          style={{ background: "linear-gradient(90deg, #14171F 0%, #0F1117 100%)", boxShadow: "inset 0px 1px 8px rgba(59,130,246,0.05)" }}
+        <motion.div
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-[1280px] rounded-[20px] px-[24px] py-[20px] lg:px-0 lg:py-0 overflow-hidden"
+          style={{
+            background: "linear-gradient(90deg, #14171F 0%, #0F1117 100%)",
+            boxShadow: "inset 0px 1px 8px rgba(59,130,246,0.05)",
+            backdropFilter: "blur(6px)",
+            WebkitBackdropFilter: "blur(6px)",
+          }}
         >
           <div aria-hidden className="absolute border border-[rgba(59,130,246,0.15)] border-solid inset-0 pointer-events-none rounded-[20px]" />
+          {!reduceMotion && <LightSweep />}
           <FeaturedInDesktopRow />
           <FeaturedInMobileCarousel />
-        </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -1082,15 +1136,31 @@ function WarningTriangleIcon() {
   );
 }
 
+// Pointer-tracked 3D tilt on top of the card's own scroll-driven reveal
+// (ProveSkillRevealCard, unchanged) — a separate motion layer so the two
+// transforms never fight: the reveal wrapper owns opacity/x/y for the
+// scroll entrance, this wrapper owns rotateX/rotateY for hover, and Framer
+// Motion composes nested transforms correctly since they're on different
+// elements.
 function ProveSkillCard({ text }: { text: string }) {
+  const tilt = useTilt<HTMLDivElement>(6);
   return (
-    <div
-      className="flex gap-[14px] lg:gap-[12px] items-center bg-white rounded-[12px] px-[18px] lg:px-[16px] py-[16px] lg:py-[14px] w-[260px] lg:w-[240px]"
-      style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}
+    <motion.div
+      ref={tilt.ref}
+      onMouseMove={tilt.onMouseMove}
+      onMouseLeave={tilt.onMouseLeave}
+      style={tilt.style}
+      whileHover={{ scale: 1.03 }}
+      transition={{ type: "spring", stiffness: 300, damping: 22 }}
     >
-      <WarningTriangleIcon />
-      <p className="font-['Inter:Regular',sans-serif] font-normal text-[#1f2430] text-[14px] leading-[1.4]">{text}</p>
-    </div>
+      <div
+        className="flex gap-[14px] lg:gap-[12px] items-center bg-white rounded-[12px] px-[18px] lg:px-[16px] py-[16px] lg:py-[14px] w-[260px] lg:w-[240px]"
+        style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 4px 16px rgba(0,0,0,0.06)" }}
+      >
+        <WarningTriangleIcon />
+        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#1f2430] text-[14px] leading-[1.4]">{text}</p>
+      </div>
+    </motion.div>
   );
 }
 
@@ -1149,7 +1219,16 @@ function ProveYourSkill() {
 
   return (
     <div className="bg-white relative shrink-0 w-full">
-      <div className="flex flex-col gap-[40px] lg:gap-[0px] items-center px-[20px] py-[64px] lg:px-[80px] lg:py-[120px] w-full max-w-[1280px] mx-auto">
+      {/* Decorative only — a separate absolutely-positioned sibling, not an
+          ancestor, of the pinned scroll wrappers below. An `overflow-hidden`
+          ancestor of a `position: sticky` element is a classic way to
+          silently break the stickiness, so this layer stays out of that
+          tree entirely rather than wrapping the section root. */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <AmbientBlob className="left-[8%] top-[20%]" color="rgba(59,130,246,0.08)" size={520} duration={24} />
+        <AmbientBlob className="right-[6%] bottom-[10%]" color="rgba(96,165,250,0.06)" size={420} duration={19} />
+      </div>
+      <div className="relative flex flex-col gap-[40px] lg:gap-[0px] items-center px-[20px] py-[64px] lg:px-[80px] lg:py-[120px] w-full max-w-[1280px] mx-auto">
         {/* Desktop: pinned scroll-reveal, modeled on sadewa.framer.website's
             "Eliminate the bottlenecks" section — see proveSkillReveal.ts for
             the timing/derivation notes. The wrapper below is tall
@@ -1313,8 +1392,19 @@ function CountUpStat({ value }: { value: string }) {
 function ProofInNumbers() {
   return (
     <div className="bg-[#0b0c11] relative shrink-0 w-full">
-      <div className="flex flex-col items-center px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
-        <div className="w-full rounded-[20px] p-[24px] lg:p-[48px]" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <AmbientBlob className="left-[10%] top-[15%]" color="rgba(59,130,246,0.16)" size={500} duration={21} />
+        <AmbientBlob className="right-[8%] bottom-[5%]" color="rgba(96,165,250,0.1)" size={420} duration={17} />
+      </div>
+      <div className="relative flex flex-col items-center px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 24 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-80px" }}
+          transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full rounded-[20px] p-[24px] lg:p-[48px]"
+          style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}
+        >
           <div className="flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center lg:items-stretch">
             {/* Left: kicker, heading, description, CTA */}
             <div className="flex-1 flex flex-col gap-[16px] items-start justify-center text-left w-full">
@@ -1331,8 +1421,9 @@ function ProofInNumbers() {
               <p className="font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[15px] lg:text-[16px] leading-[1.6] max-w-[420px]">
                 A global community built on transparent conditions, real progress, and rewards delivered to traders.
               </p>
-              <a
+              <HeroCta
                 href="#live-payouts"
+                magneticStrength={0.18}
                 className="mt-[8px] flex items-center gap-[10px] px-[24px] py-[12px] relative rounded-[999px] shrink-0 no-underline"
                 style={PILL_CTA_GRADIENT_STYLE}
               >
@@ -1341,13 +1432,18 @@ function ProofInNumbers() {
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
                   <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
-              </a>
+              </HeroCta>
             </div>
             {/* Right: 2x2 stat grid */}
             <div className="flex-1 grid grid-cols-2 gap-[12px] lg:gap-[16px] w-full">
-              {PROOF_STATS.map(({ value, label, icon }) => (
-                <div
+              {PROOF_STATS.map(({ value, label, icon }, i) => (
+                <motion.div
                   key={label}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true, margin: "-60px" }}
+                  transition={{ duration: 0.5, delay: 0.08 * i, ease: [0.16, 1, 0.3, 1] }}
+                  whileHover={{ y: -4, borderColor: "rgba(96,165,250,0.4)" }}
                   className="flex flex-col gap-[10px] items-center justify-center rounded-[14px] px-[16px] py-[24px] lg:py-[28px] text-center"
                   style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}
                 >
@@ -1356,11 +1452,11 @@ function ProofInNumbers() {
                   </div>
                   <CountUpStat value={value} />
                   <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px] tracking-[0.5px] uppercase">{label}</p>
-                </div>
+                </motion.div>
               ))}
             </div>
           </div>
-        </div>
+        </motion.div>
       </div>
     </div>
   );
@@ -1401,57 +1497,99 @@ const PAYOUT_CARDS = [
   { id: 491, image: imgCert491, amount: "$2,649.27", name: "Karthik G.", country: "India", countryFlag: "🇮🇳" },
 ] as const;
 
+function PayoutCertificateCard({ card }: { card: (typeof PAYOUT_CARDS)[number] }) {
+  const tilt = useTilt<HTMLDivElement>(5);
+  return (
+    <motion.div
+      role="group"
+      aria-roledescription="slide"
+      ref={tilt.ref}
+      onMouseMove={tilt.onMouseMove}
+      onMouseLeave={tilt.onMouseLeave}
+      style={tilt.style}
+      whileHover={{ y: -6 }}
+      transition={{ type: "spring", stiffness: 280, damping: 22 }}
+      className="flex-shrink-0 basis-full lg:basis-[calc((100%-32px)/3)] flex flex-col gap-[16px]"
+    >
+      <div className="rounded-[16px] overflow-hidden transition-shadow duration-300" style={{ boxShadow: "0 4px 14px rgba(0,0,0,0.05)" }}>
+        <img src={card.image} alt={`FYT reward certificate — ${card.amount} awarded to ${card.name}`} className="w-full h-auto object-contain" loading="lazy" decoding="async" />
+      </div>
+      <div className="flex flex-col gap-[2px] px-[4px]">
+        <div className="flex items-baseline gap-[10px]">
+          <p className="font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[22px] tracking-[-0.02em]">{card.amount}</p>
+          <span className="font-['Inter:Regular',sans-serif] font-normal text-[#1f2430] text-[14px]"><span aria-hidden="true">{card.countryFlag}</span> {card.country}</span>
+        </div>
+        <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[15px]">{card.name}</p>
+      </div>
+    </motion.div>
+  );
+}
+
 function LivePayouts() {
   const prefersReducedMotion = useReducedMotion();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" }, buildAutoplayPlugins(prefersReducedMotion));
   const { connectionState, records } = useLiveRewardsFeed();
   return (
     <div id="live-payouts" className="bg-white relative shrink-0 w-full">
-      <div className="flex flex-col gap-[36px] lg:gap-[48px] items-center px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
-        <h2 className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em] text-center">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+        <AmbientBlob className="left-[6%] top-[8%]" color="rgba(59,130,246,0.07)" size={480} duration={23} />
+        <AmbientBlob className="right-[10%] bottom-[12%]" color="rgba(34,197,94,0.05)" size={380} duration={18} />
+      </div>
+      <div className="relative flex flex-col gap-[36px] lg:gap-[48px] items-center px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
+        <motion.h2
+          initial={{ opacity: 0, y: 16 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
+          className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em] text-center"
+        >
           Live Rewards. <span className="text-[#3b82f6]">Verified</span> Rewards.
-        </h2>
+        </motion.h2>
         {/* Reward certificate cards */}
-        <div className="flex items-center gap-[12px] w-full">
-          <button
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+          className="flex items-center gap-[12px] w-full"
+        >
+          <motion.button
             type="button"
             aria-label="Previous reward certificate"
             onClick={() => emblaApi?.scrollPrev()}
-            className="hidden lg:flex items-center justify-center rounded-full size-[40px] shrink-0 cursor-pointer bg-white"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
+            className="hidden lg:flex items-center justify-center rounded-full size-[40px] shrink-0 cursor-pointer bg-white transition-shadow duration-200 hover:shadow-[0_4px_16px_rgba(59,130,246,0.18)]"
             style={{ border: "1px solid rgba(0,0,0,0.1)" }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
+          </motion.button>
           <div className="flex-1 overflow-hidden" ref={emblaRef} role="region" aria-roledescription="carousel" aria-label="Reward certificates">
             <div className="flex gap-[16px]">
               {PAYOUT_CARDS.map((card) => (
-                <div key={card.id} role="group" aria-roledescription="slide" className="flex-shrink-0 basis-full lg:basis-[calc((100%-32px)/3)] flex flex-col gap-[16px]">
-                  <div className="rounded-[16px] overflow-hidden">
-                    <img src={card.image} alt={`FYT reward certificate — ${card.amount} awarded to ${card.name}`} className="w-full h-auto object-contain" loading="lazy" decoding="async" />
-                  </div>
-                  <div className="flex flex-col gap-[2px] px-[4px]">
-                    <div className="flex items-baseline gap-[10px]">
-                      <p className="font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[22px] tracking-[-0.02em]">{card.amount}</p>
-                      <span className="font-['Inter:Regular',sans-serif] font-normal text-[#1f2430] text-[14px]"><span aria-hidden="true">{card.countryFlag}</span> {card.country}</span>
-                    </div>
-                    <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[15px]">{card.name}</p>
-                  </div>
-                </div>
+                <PayoutCertificateCard key={card.id} card={card} />
               ))}
             </div>
           </div>
-          <button
+          <motion.button
             type="button"
             aria-label="Next reward certificate"
             onClick={() => emblaApi?.scrollNext()}
-            className="hidden lg:flex items-center justify-center rounded-full size-[40px] shrink-0 cursor-pointer bg-white"
+            whileHover={{ scale: 1.08 }}
+            whileTap={{ scale: 0.94 }}
+            className="hidden lg:flex items-center justify-center rounded-full size-[40px] shrink-0 cursor-pointer bg-white transition-shadow duration-200 hover:shadow-[0_4px_16px_rgba(59,130,246,0.18)]"
             style={{ border: "1px solid rgba(0,0,0,0.1)" }}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
         {/* Recent rewards table */}
-        <div className="w-full bg-white rounded-[16px] overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.08)" }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="w-full bg-white rounded-[16px] overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.08)" }}>
           <div className="flex items-center gap-[12px] px-[20px] py-[16px] flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
             <span className="flex items-center gap-[6px] px-[10px] py-[4px] rounded-full" style={{ background: connectionState === "connected" ? "rgba(34,197,94,0.1)" : "rgba(100,116,139,0.1)" }}>
               <span className="relative flex size-[8px]">
@@ -1490,8 +1628,17 @@ function LivePayouts() {
               <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[14px]">Waiting for certificates…</p>
             </div>
           ) : (
-            records.map((record) => (
-              <div key={record.name + record.timestamp} className="flex items-center flex-wrap lg:flex-nowrap gap-[12px] lg:gap-[16px] px-[20px] py-[14px]" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+            <AnimatePresence initial={false}>
+            {records.map((record) => (
+              <motion.div
+                key={record.name + record.timestamp}
+                layout
+                initial={{ opacity: 0, y: -12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                className="flex items-center flex-wrap lg:flex-nowrap gap-[12px] lg:gap-[16px] px-[20px] py-[14px] transition-colors duration-200 hover:bg-[rgba(59,130,246,0.03)]"
+                style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}
+              >
                 <div className="flex-1 flex items-center gap-[10px] min-w-[200px]">
                   <span className="inline-flex rounded-full size-[8px] bg-[#22c55e] shrink-0" />
                   <div className="flex items-center justify-center rounded-full size-[28px] shrink-0" style={{ background: "#eef0f6" }}>
@@ -1511,20 +1658,22 @@ function LivePayouts() {
                 <div className="w-full lg:w-[80px]">
                   <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px]">{timeAgo(record.timestamp)}</p>
                 </div>
-              </div>
-            ))
+              </motion.div>
+            ))}
+            </AnimatePresence>
           )}
-        </div>
-        <a
+        </motion.div>
+        <HeroCta
           href="https://provesrc.com/verified/?src=fundingyourtrades"
           target="_blank"
           rel="noopener noreferrer"
+          magneticStrength={0.16}
           className="flex items-center gap-[10px] px-[32px] py-[16px] rounded-[999px] shrink-0 no-underline"
           style={PILL_CTA_GRADIENT_STYLE}
         >
           <svg width="16" height="16" viewBox="0 0 20 20" fill="none"><path d="M3 8h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M2 5.5a1.5 1.5 0 0 1 1.5-1.5H10v4H3.5A1.5 1.5 0 0 1 2 6.5v-1Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M18 5.5A1.5 1.5 0 0 0 16.5 4H10v4h6.5A1.5 1.5 0 0 0 18 6.5v-1Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M10 4v14" stroke="#fff" strokeWidth="1.5" /></svg>
           <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[16px] text-white whitespace-nowrap">Check More Rewards</p>
-        </a>
+        </HeroCta>
       </div>
     </div>
   );
