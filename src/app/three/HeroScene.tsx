@@ -14,26 +14,29 @@ import * as THREE from "three";
 // Vite's JS import graph — this is how glTF's own relative references to
 // its .bin buffer and texture files resolve correctly at runtime.
 const ASTEROID_MODEL_URLS = {
-  // Both large asteroids get the 2k texture set + real displacement map —
-  // approved reference composition has exactly two hero-quality rocks, so
-  // both can afford the nicer treatment (previously only the right one had
-  // it). The four small corner rocks stay at 1k / use lower LOD nodes,
-  // which also gives them a visibly different silhouette from the two
-  // large ones despite sharing the same 3 underlying scans.
+  // Both large asteroids get a 2k texture set + real displacement map. The
+  // large-left slot uses moon_rock_05 (Poly Haven's roundest scan — max/min
+  // dimension ratio ~1.13, vs. ~2.82 for moon_rock_01) instead of rock1:
+  // rock1's real scanned proportions are genuinely elongated, so no amount
+  // of rotation ever reads as "rounded" from every angle — swapping the
+  // source model (not deforming it) is what the user explicitly asked for.
+  // rock1 (1k) stays loaded because the two small-right corner rocks still
+  // use its lower LOD nodes for silhouette variety. The four small corner
+  // rocks stay at 1k / lower LOD nodes throughout.
   rock1: "/models/moon-rock-01/moon_rock_01_1k.gltf",
-  rock1Hi: "/models/moon-rock-01/moon_rock_01_2k.gltf",
   rock2: "/models/moon-rock-02/moon_rock_02_1k.gltf",
   rock2Hi: "/models/moon-rock-02/moon_rock_02_2k.gltf",
   rock3: "/models/moon-rock-03/moon_rock_03_1k.gltf",
+  rock5Hi: "/models/moon-rock-05/moon_rock_05_2k.gltf",
 } as const;
-const ROCK1_DISPLACEMENT_URL = "/models/moon-rock-01/textures/moon_rock_01_disp_2k.jpg";
 const ROCK2_DISPLACEMENT_URL = "/models/moon-rock-02/textures/moon_rock_02_disp_2k.jpg";
+const ROCK5_DISPLACEMENT_URL = "/models/moon-rock-05/textures/moon_rock_05_disp_2k.jpg";
 
 useGLTF.preload(ASTEROID_MODEL_URLS.rock1);
-useGLTF.preload(ASTEROID_MODEL_URLS.rock1Hi);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock2);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
+useGLTF.preload(ASTEROID_MODEL_URLS.rock5Hi);
 
 interface AsteroidSpec {
   key: string;
@@ -145,47 +148,54 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
 // random scatter, no instancing — six hand-placed objects.
 function AsteroidField() {
   const rock1 = useGLTF(ASTEROID_MODEL_URLS.rock1);
-  const rock1Hi = useGLTF(ASTEROID_MODEL_URLS.rock1Hi);
   const rock2 = useGLTF(ASTEROID_MODEL_URLS.rock2);
   const rock2Hi = useGLTF(ASTEROID_MODEL_URLS.rock2Hi);
   const rock3 = useGLTF(ASTEROID_MODEL_URLS.rock3);
-  const rock1Displacement = useTexture(ROCK1_DISPLACEMENT_URL);
+  const rock5Hi = useGLTF(ASTEROID_MODEL_URLS.rock5Hi);
   const rock2Displacement = useTexture(ROCK2_DISPLACEMENT_URL);
+  const rock5Displacement = useTexture(ROCK5_DISPLACEMENT_URL);
 
   useEffect(() => {
-    rock1Displacement.colorSpace = THREE.NoColorSpace;
-    rock1Displacement.needsUpdate = true;
     rock2Displacement.colorSpace = THREE.NoColorSpace;
     rock2Displacement.needsUpdate = true;
-  }, [rock1Displacement, rock2Displacement]);
+    rock5Displacement.colorSpace = THREE.NoColorSpace;
+    rock5Displacement.needsUpdate = true;
+  }, [rock2Displacement, rock5Displacement]);
 
   const rock1LOD0 = rock1.nodes["moon_rock_01_LOD0"] as THREE.Mesh;
   const rock1LOD2 = (rock1.nodes["moon_rock_01_LOD2"] as THREE.Mesh) ?? rock1LOD0;
   const rock1LOD3 = (rock1.nodes["moon_rock_01_LOD3"] as THREE.Mesh) ?? rock1LOD0;
-  const rock1HiLOD0 = rock1Hi.nodes["moon_rock_01_LOD0"] as THREE.Mesh;
   const rock2Mesh = rock2.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
   const rock2HiMesh = rock2Hi.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
   const rock3Mesh = rock3.nodes["moon_rock_03_LOD0"] as THREE.Mesh;
+  const rock5HiLOD0 = rock5Hi.nodes["moon_rock_05_LOD0"] as THREE.Mesh;
 
   const specs = useMemo<AsteroidSpec[]>(
     () => [
-      // ── 2 large — same scale (matched visual weight), same vertical
-      // alignment. Left: pulled in slightly (-5.7 -> -5.5) to offset its
-      // size increase; rotation changed substantially from the previous
-      // pass — the old orientation was very likely presenting the scan's
-      // flatter "underside" (where the real rock rested during the
-      // photogrammetry capture) toward the camera, which reads as
-      // "blocky/broken" even though the mesh itself is unchanged; a
-      // different facet should look rounder. Displacement bumped up
-      // slightly for more pronounced relief. Right: moved inward
-      // (5.7 -> 5.0) so the whole rock stays inside the frame.
+      // ── 2 large — deliberately different apparent sizes now (right is
+      // still the bigger of the two, ~28%, but no longer dominant), both
+      // scales derived from real-world scan dimensions (Poly Haven
+      // `dimensions` metadata: rock5 avg ~75.5mm, rock2 avg ~233.8mm) times
+      // scale so the *apparent* on-screen size moves by the requested
+      // percentage — matching raw `scale` numbers between two different
+      // scans does not produce equal visual size. `scale` stays a single
+      // uniform number for both (never per-axis) — geometry is never
+      // stretched, squashed, or otherwise deformed anywhere in this file.
+      //
+      // Left: previously rock1 (elongated scan, ratio ~2.82) rotated to
+      // try to hide its long axis — no orientation of an elongated mesh
+      // reads as "rounded" from every angle, so per explicit request this
+      // now uses rock5 instead (Poly Haven's roundest moon-rock scan,
+      // ratio ~1.13 — genuinely chunky/spherical, not a rotation trick).
+      // Old apparent size (rock1 @ scale 16.2) ≈2.16 units; new scale
+      // (31.4) targets ≈2.37 units, a ~10% increase, at the same position.
       {
         key: "large-left",
-        geometry: rock1HiLOD0.geometry,
-        material: rock1HiLOD0.material,
+        geometry: rock5HiLOD0.geometry,
+        material: rock5HiLOD0.material,
         position: [-5.5, 0.3, -3.6],
-        rotation: [2.6, 0.5, -1.8],
-        scale: 16.2,
+        rotation: [0.6, 2.1, -0.3],
+        scale: 31.4,
         rotationSpeed: 0.0022,
         floatAmplitudeY: 0.048,
         floatPeriod: 21,
@@ -194,16 +204,21 @@ function AsteroidField() {
         phaseOffset: 0,
         colorTint: 1.02,
         roughnessJitter: -0.01,
-        displacementMap: rock1Displacement,
-        displacementScale: 0.022,
+        displacementMap: rock5Displacement,
+        displacementScale: 0.007,
       },
+      // Right: same rock2 model as before, only resized. Old apparent size
+      // (scale 16.2) ≈3.79 units; new scale (13.0) targets ≈3.03 units, a
+      // ~20% reduction — still larger than the new left (≈3.03 vs ≈2.37,
+      // ~28% bigger) but no longer dominant. Position/rotation unchanged;
+      // the smaller size only gives it more frame clearance, not less.
       {
         key: "large-right",
         geometry: rock2HiMesh.geometry,
         material: rock2HiMesh.material,
         position: [5.0, 0.3, -3.6],
         rotation: [0.3, -0.6, 0.15],
-        scale: 16.2,
+        scale: 13.0,
         rotationSpeed: 0.0024,
         floatAmplitudeY: 0.048,
         floatPeriod: 23,
@@ -284,7 +299,7 @@ function AsteroidField() {
         roughnessJitter: 0.02,
       },
     ],
-    [rock1HiLOD0, rock1Displacement, rock2HiMesh, rock2Displacement, rock3Mesh, rock1LOD2, rock1LOD0, rock2Mesh, rock1LOD3],
+    [rock5HiLOD0, rock5Displacement, rock2HiMesh, rock2Displacement, rock3Mesh, rock1LOD2, rock1LOD0, rock2Mesh, rock1LOD3],
   );
 
   return (
