@@ -87,6 +87,39 @@ import {
   PROOF_CONNECTION_LINE_TRAVEL_DURATION_S,
   PROOF_SPOTLIGHT_OPACITY,
 } from "@/app/proofInNumbersMotion";
+import {
+  productSectionContainer,
+  productSectionItem,
+  productHeadingContainer,
+  productHeadingWord,
+  PRODUCT_BADGE_STAGGER,
+  productBadgeContainer,
+  productBadgeIcon,
+  productBadgeLabel,
+  productDashboardContainer,
+  productDashboardBack,
+  productDashboardFront,
+  productDashboardFloatY,
+  PRODUCT_DASHBOARD_FLOAT_TRANSITION,
+  PRODUCT_DASHBOARD_TILT_MAX_DEG,
+  PRODUCT_REFLECTION_SWEEP_TRANSITION,
+  productReflectionSweep,
+  PRODUCT_AMBIENT_GLOW_OPACITY as PRODUCT_SHOWCASE_AMBIENT_GLOW_OPACITY,
+  PRODUCT_AMBIENT_GLOW_TRANSITION,
+  PRODUCT_CONNECTION_LINE_DELAY_S,
+  PRODUCT_CONNECTION_LINE_DURATION_S,
+  PRODUCT_CONNECTION_LINE_OPACITY,
+  PRODUCT_DUST_PARTICLES,
+  PRODUCT_CARD_HOVER_TRANSITION,
+  productPlatformCardHover,
+  productPlatformPillHover,
+  productIconHoverRotate,
+  productSupportCardHover,
+  PRODUCT_ONLINE_DOT_TRANSITION,
+  productOnlineDotPulse,
+  PRODUCT_CHAT_BUTTON_SHEEN_DURATION_S,
+  productChatButtonSheen,
+} from "@/app/productShowcaseMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
 import { useMonotonicProgress } from "@/app/scrollProgress";
@@ -3578,6 +3611,7 @@ function OverviewBadgeIcon({ kind }: { kind: (typeof OVERVIEW_BADGES)[number]["i
   if (kind === "bolt") return <svg {...common}><path d="M9 1.5 3.5 9h4l-1 5.5L12.5 7h-4L9 1.5Z" strokeWidth="1.2" strokeLinejoin="round" /></svg>;
   return <svg {...common}><path d="M2 12.5l4-4.5 3 2.5 5-6" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /><path d="M11 4h3v3" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 }
+const OVERVIEW_HEADING_TEXT = "Designed around the way traders actually trade.";
 
 const SUPPORT_FEATURES = [
   { label: "Live Chat", icon: "chat" as const },
@@ -3594,42 +3628,184 @@ function SupportFeatureIcon({ kind }: { kind: (typeof SUPPORT_FEATURES)[number][
   return <svg {...common}><path d="M8 1.8l1.8 3.7 4 .6-2.9 2.8.7 4-3.6-1.9-3.6 1.9.7-4L2.2 6.1l4-.6L8 1.8Z" strokeWidth="1.2" strokeLinejoin="round" /></svg>;
 }
 
+// ProductShowcase ("Overview of FYT") is a fully static section elsewhere in
+// the codebase; this reveal/micro-interaction pass reuses App.tsx's existing
+// `motion`/`useReducedMotion`/`useTilt` imports rather than adding new ones,
+// and keeps every existing className/style/text exactly as it was — only
+// `motion.*` wrappers, `variants`, `whileHover`, and a handful of purely
+// decorative absolutely-positioned overlays (dust particles, ambient glow,
+// connection line, reflection sweep) are new.
 function ProductShowcase() {
+  const prefersReducedMotion = useReducedMotion();
+  const tilt = useTilt<HTMLDivElement>(PRODUCT_DASHBOARD_TILT_MAX_DEG);
+  const headingWords = OVERVIEW_HEADING_TEXT.split(" ");
+
   return (
-    <div className="bg-white relative shrink-0 w-full">
-      <div className="flex flex-col gap-[48px] lg:gap-[64px] px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
-        {/* Dashboard overview */}
-        <div className="flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center">
-          <div className="flex-1 flex flex-col gap-[16px]">
+    <div className="relative shrink-0 w-full" style={{ background: "#F8FAFF" }}>
+      {/* 5-8 tiny floating blue dust particles — soft/blurred, deliberately
+          not crisp points like the Hero starfield ("dust", not stars"). */}
+      {!prefersReducedMotion && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
+          {PRODUCT_DUST_PARTICLES.map((p, i) => (
+            <motion.div
+              key={i}
+              className="absolute rounded-full"
+              style={{
+                left: `${p.leftPct}%`,
+                top: `${p.topPct}%`,
+                width: p.size,
+                height: p.size,
+                background: "radial-gradient(circle, rgba(59,130,246,0.55), transparent 70%)",
+                filter: "blur(1px)",
+              }}
+              animate={{ x: [0, p.driftX, 0], y: [0, p.driftY, 0], opacity: [0.25, 0.6, 0.25] }}
+              transition={{ duration: p.duration, repeat: Infinity, ease: "easeInOut", delay: p.delay }}
+            />
+          ))}
+        </div>
+      )}
+
+      <motion.div
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, margin: "-100px" }}
+        variants={productSectionContainer}
+        className="relative flex flex-col gap-[48px] lg:gap-[64px] px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto"
+      >
+        {/* Dashboard overview — reveal order items 1 (heading) & 2 (dashboard) */}
+        <div className="relative flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center">
+          <motion.div variants={productSectionItem} className="flex-1 flex flex-col gap-[16px]">
             <div className="flex flex-col gap-[10px]">
               <span className="text-[#3b82f6] text-[12px] font-['Inter:Semi_Bold',sans-serif] font-semibold tracking-[1.5px] uppercase">Overview of FYT</span>
               <span className="w-[32px] h-[2px] rounded-full" style={{ background: "#3b82f6" }} aria-hidden />
             </div>
-            <h2 className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[26px] lg:text-[36px] leading-[1.2] tracking-[-0.02em]">
-              Designed around the way traders actually trade.
-            </h2>
+            {/* Heading reveals progressively (word-by-word — the sentence has
+                no fixed line count across breakpoints, so splitting on words
+                preserves the exact existing responsive wrapping rather than
+                forcing a hard line break). */}
+            <motion.h2
+              variants={productHeadingContainer}
+              className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[26px] lg:text-[36px] leading-[1.2] tracking-[-0.02em]"
+            >
+              {headingWords.map((word, i) => (
+                <motion.span key={i} variants={productHeadingWord} className="inline-block whitespace-pre">
+                  {word}
+                  {i < headingWords.length - 1 ? " " : ""}
+                </motion.span>
+              ))}
+            </motion.h2>
             <p className="font-['Inter:Regular',sans-serif] font-normal text-[#6b7280] text-[15px] leading-[1.6]">
               A clear dashboard gives you everything needed to monitor accounts, request rewards, and manage your journey.
             </p>
-            <div className="flex flex-wrap items-center gap-[16px] mt-[8px]">
+            <motion.div
+              variants={productBadgeContainer}
+              className="flex flex-wrap items-center gap-[16px] mt-[8px]"
+            >
               {OVERVIEW_BADGES.flatMap(({ label, icon }, i) => [
                 i > 0 ? (
                   <span key={`div-${label}`} className="hidden sm:block w-px h-[16px]" style={{ background: "rgba(0,0,0,0.12)" }} aria-hidden />
                 ) : null,
                 <span key={label} className="flex items-center gap-[6px] text-[#374151] text-[13px] font-['Inter:Medium',sans-serif] font-medium">
-                  <OverviewBadgeIcon kind={icon} />
-                  {label}
+                  <motion.span variants={productBadgeIcon} className="inline-flex">
+                    <OverviewBadgeIcon kind={icon} />
+                  </motion.span>
+                  <motion.span variants={productBadgeLabel}>{label}</motion.span>
                 </span>,
               ])}
+            </motion.div>
+          </motion.div>
+
+          {/* Heading → dashboard connection line, growing during the reveal. */}
+          {!prefersReducedMotion && (
+            <div className="hidden lg:block absolute left-[20%] right-[8%] top-1/2 h-px pointer-events-none">
+              <motion.div
+                className="absolute inset-0 origin-left"
+                style={{
+                  background: "linear-gradient(90deg, transparent, #3b82f6, transparent)",
+                  boxShadow: "0 0 8px rgba(59,130,246,0.5)",
+                  opacity: PRODUCT_CONNECTION_LINE_OPACITY,
+                }}
+                initial={{ scaleX: 0 }}
+                whileInView={{ scaleX: 1 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: PRODUCT_CONNECTION_LINE_DURATION_S, delay: PRODUCT_CONNECTION_LINE_DELAY_S, ease: [0.16, 1, 0.3, 1] }}
+              />
             </div>
-          </div>
-          <div className="flex-1 w-full">
-            <img src={imgDashboardMockup} alt="FYT trader dashboard overview" className="w-full h-auto object-contain" />
-          </div>
+          )}
+
+          <motion.div variants={productSectionItem} className="flex-1 w-full">
+            {/* Dashboard "assembly": a back copy of the same image (there is
+                only one dashboard asset — no second mockup image exists to
+                use as a true second layer) settles into a slight permanent
+                tilt behind the front copy, which then rises/scales/fades in
+                on top — this reproduces the requested two-layer "stacked
+                dashboard" composition without a new asset. Idle float +
+                mouse-parallax (useTilt, GPU rotateX/rotateY transforms)
+                apply to the assembled group as a whole. */}
+            <motion.div
+              ref={tilt.ref}
+              onMouseMove={tilt.onMouseMove}
+              onMouseLeave={tilt.onMouseLeave}
+              className="relative"
+              style={{ rotateX: tilt.style.rotateX, rotateY: tilt.style.rotateY, transformPerspective: tilt.style.transformPerspective }}
+              animate={prefersReducedMotion ? undefined : { y: productDashboardFloatY }}
+              transition={prefersReducedMotion ? undefined : PRODUCT_DASHBOARD_FLOAT_TRANSITION}
+            >
+              {/* Ambient blue glow behind the dashboard */}
+              <motion.div
+                aria-hidden="true"
+                className="absolute left-1/2 top-1/2 rounded-full pointer-events-none"
+                style={{
+                  width: "70%",
+                  height: "70%",
+                  transform: "translate(-50%, -50%)",
+                  background: "radial-gradient(ellipse, rgba(59,130,246,0.55), transparent 70%)",
+                  filter: "blur(60px)",
+                }}
+                initial={{ opacity: 0.06 }}
+                animate={prefersReducedMotion ? undefined : { opacity: PRODUCT_SHOWCASE_AMBIENT_GLOW_OPACITY }}
+                transition={prefersReducedMotion ? undefined : PRODUCT_AMBIENT_GLOW_TRANSITION}
+              />
+              <motion.div variants={productDashboardContainer} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-100px" }} className="relative">
+                {/* Back layer */}
+                <motion.img
+                  variants={productDashboardBack}
+                  src={imgDashboardMockup}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute inset-0 w-full h-auto object-contain pointer-events-none"
+                  style={{ filter: "blur(1.5px) saturate(0.85)", opacity: 0.55 }}
+                />
+                {/* Front layer — the real, in-flow dashboard image (unchanged
+                    from before: same src/alt/className), overflow-hidden
+                    wrapper only for the reflection sweep clip. */}
+                <motion.div variants={productDashboardFront} className="relative overflow-hidden">
+                  <img src={imgDashboardMockup} alt="FYT trader dashboard overview" className="w-full h-auto object-contain" />
+                  {!prefersReducedMotion && (
+                    <motion.div
+                      aria-hidden="true"
+                      className="absolute inset-y-0 w-1/4 pointer-events-none"
+                      style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.5), transparent)" }}
+                      initial={{ x: "-140%" }}
+                      animate={productReflectionSweep}
+                      transition={PRODUCT_REFLECTION_SWEEP_TRANSITION}
+                    />
+                  )}
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </div>
         {/* Trusted Platform + Trusted Support */}
+        {/* reveal order items 3 & 4 */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-[24px]">
-          <div className="rounded-[16px] p-[28px] lg:p-[36px]" style={{ border: "1px solid rgba(0,0,0,0.08)" }}>
+          <motion.div
+            variants={productSectionItem}
+            whileHover={prefersReducedMotion ? undefined : productPlatformCardHover}
+            transition={PRODUCT_CARD_HOVER_TRANSITION}
+            className="group rounded-[16px] p-[28px] lg:p-[36px]"
+            style={{ border: "1px solid rgba(0,0,0,0.08)" }}
+          >
             <p className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[22px] mb-[8px]">Trusted Platform</p>
             <p className="font-['Inter:Regular',sans-serif] font-normal text-[#6b7280] text-[14px] mb-[76px]">Access your account with the platforms you already know.</p>
             <div className="relative">
@@ -3638,37 +3814,48 @@ function ProductShowcase() {
                   <path d="M50 44 V52 H25 V76" stroke="#3b82f6" strokeWidth="1" strokeDasharray="3 3" strokeLinecap="round" fill="none" vectorEffect="non-scaling-stroke" />
                   <path d="M50 44 V52 H75 V76" stroke="#3b82f6" strokeWidth="1" strokeDasharray="3 3" strokeLinecap="round" fill="none" vectorEffect="non-scaling-stroke" />
                 </svg>
-                <span className="absolute left-1/2 -translate-x-1/2 top-[8px] flex items-center justify-center rounded-full bg-white size-[36px]" style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}>
+                <motion.span
+                  className="absolute left-1/2 -translate-x-1/2 top-[8px] flex items-center justify-center rounded-full bg-white size-[36px]"
+                  style={{ boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                  whileHover={prefersReducedMotion ? undefined : productIconHoverRotate}
+                >
                   <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
                     <path d="M7 3v4M13 3v4M5 7h10v3a5 5 0 0 1-10 0V7Z" stroke="#3b82f6" strokeWidth="1.4" strokeLinejoin="round" />
                     <path d="M10 16v3" stroke="#3b82f6" strokeWidth="1.4" strokeLinecap="round" />
                   </svg>
-                </span>
+                </motion.span>
               </div>
               <div className="flex gap-[16px] pt-0">
                 {[
                   { name: "MatchTrader", logo: imgMatchTraderLogo, logoClassName: "h-[24px] w-auto object-contain" },
                   { name: "Platform 5", logo: imgPlatform5Logo, logoClassName: "h-[36px] w-auto object-contain" },
                 ].map(({ name, logo, logoClassName }) => (
-                  <div
+                  <motion.div
                     key={name}
+                    whileHover={prefersReducedMotion ? undefined : productPlatformPillHover}
+                    transition={PRODUCT_CARD_HOVER_TRANSITION}
                     className="flex-1 flex items-center justify-center gap-[10px] rounded-[12px] py-[14px]"
                     style={SUPPORT_CARD_GRADIENT_STYLE}
                   >
                     <img src={logo} alt="" className={logoClassName} />
                     <p className="font-['DM_Sans',sans-serif] font-medium text-white text-[16px]">{name}</p>
-                  </div>
+                  </motion.div>
                 ))}
               </div>
             </div>
             <p className="font-['Inter:Medium',sans-serif] font-medium text-[#3b82f6] text-[13px] mt-[8px] flex items-center gap-[6px]">
-              <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <motion.svg width="14" height="14" viewBox="0 0 16 16" fill="none" whileHover={prefersReducedMotion ? undefined : productIconHoverRotate}>
                 <path d="M8 1.5l5.5 2v4c0 3.5-2.3 6.2-5.5 7-3.2-.8-5.5-3.5-5.5-7v-4l5.5-2Z" stroke="#3b82f6" strokeWidth="1.3" strokeLinejoin="round" fill="none" />
-              </svg>
+              </motion.svg>
               Secure. Fast. Seamless.
             </p>
-          </div>
-          <div className="rounded-[16px] p-[28px] lg:p-[36px]" style={SUPPORT_CARD_GRADIENT_STYLE}>
+          </motion.div>
+          <motion.div
+            variants={productSectionItem}
+            whileHover={prefersReducedMotion ? undefined : productSupportCardHover}
+            transition={PRODUCT_CARD_HOVER_TRANSITION}
+            className="rounded-[16px] p-[28px] lg:p-[36px]" style={SUPPORT_CARD_GRADIENT_STYLE}
+          >
             <div className="flex flex-col xl:flex-row xl:items-center justify-between h-full gap-[12px] xl:gap-[24px]">
               <div className="flex-1 min-w-0">
                 <p className="font-['DM_Sans',sans-serif] font-medium text-white text-[22px] mb-[8px]">Trusted Support Team</p>
@@ -3676,7 +3863,16 @@ function ProductShowcase() {
                 <div className="flex flex-wrap gap-[20px]">
                   {SUPPORT_FEATURES.map(({ label, icon }) => (
                     <div key={label} className="flex flex-col items-center gap-[6px] text-center">
-                      <span className="flex items-center justify-center rounded-full size-[36px]" style={{ background: "rgba(255,255,255,0.16)" }}>
+                      <span className="relative flex items-center justify-center rounded-full size-[36px]" style={{ background: "rgba(255,255,255,0.16)" }}>
+                        {(icon === "chat" || icon === "clock") && !prefersReducedMotion && (
+                          <motion.span
+                            aria-hidden="true"
+                            className="absolute top-0 right-0 rounded-full size-[8px]"
+                            style={{ background: "#4ade80", boxShadow: "0 0 6px rgba(74,222,128,0.8)" }}
+                            animate={productOnlineDotPulse}
+                            transition={PRODUCT_ONLINE_DOT_TRANSITION}
+                          />
+                        )}
                         <SupportFeatureIcon kind={icon} />
                       </span>
                       <span className="font-['Inter:Medium',sans-serif] font-medium text-white text-[11px]">{label}</span>
@@ -3684,16 +3880,38 @@ function ProductShowcase() {
                   ))}
                 </div>
               </div>
-              <a href={HERO_CONTENT.ctaSecondary.href} className="inline-flex items-center gap-[8px] bg-white rounded-full px-[20px] py-[12px] no-underline whitespace-nowrap shrink-0 self-start xl:self-center">
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]" style={{ color: SUPPORT_CARD_ACCENT_BLUE }}>Chat with us</span>
-                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+              <a
+                href={HERO_CONTENT.ctaSecondary.href}
+                className="group relative inline-flex items-center gap-[8px] bg-white rounded-full px-[20px] py-[12px] no-underline whitespace-nowrap shrink-0 self-start xl:self-center overflow-hidden"
+              >
+                {/* Very slow, very-low-opacity blue sheen — the button's own
+                    resting appearance (flat white, blue text) is unchanged;
+                    this is a subtle continuous underlay, not a color change. */}
+                {!prefersReducedMotion && (
+                  <motion.span
+                    aria-hidden="true"
+                    className="absolute inset-y-0 w-1/3 pointer-events-none"
+                    style={{ background: "linear-gradient(115deg, transparent, rgba(59,130,246,0.12), transparent)" }}
+                    initial={{ x: "-130%" }}
+                    animate={productChatButtonSheen}
+                    transition={{ duration: PRODUCT_CHAT_BUTTON_SHEEN_DURATION_S, repeat: Infinity, ease: "linear" }}
+                  />
+                )}
+                <span className="relative font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px]" style={{ color: SUPPORT_CARD_ACCENT_BLUE }}>Chat with us</span>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  className="relative transition-transform duration-300 group-hover:translate-x-[6px]"
+                >
                   <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke={SUPPORT_CARD_ACCENT_BLUE} strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </a>
             </div>
-          </div>
+          </motion.div>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 }
