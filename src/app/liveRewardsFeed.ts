@@ -71,8 +71,36 @@ export function timeAgo(isoTimestamp: string, nowMs: number = Date.now()): strin
 const RECONNECT_BASE_MS = 3000;
 const RECONNECT_MAX_MS = 60000;
 
+// ─── Dev-only visual fallback ────────────────────────────────────────────
+// The real backend only accepts WebSocket connections whose Origin header
+// matches the production domain (see LIVE_PAYOUTS_BACKEND's comment in
+// liveSiteContent.ts) — on localhost during development the socket is
+// always rejected (1008 Policy Violation), so this table would otherwise
+// sit on "Connecting…" forever while developing locally. Fictional
+// names/amounts only, never real customer records, and gated to
+// import.meta.env.DEV — production builds only ever show genuine data
+// from the real socket. If the real socket DOES connect (e.g. once
+// deployed to the real domain), its messages replace this via the normal
+// applyLiveRewardsMessage flow same as any other state update.
+function mockLiveRewards(): LiveRewardRecord[] {
+  const now = Date.now();
+  const hoursAgo = (h: number) => new Date(now - h * 3600_000).toISOString();
+  return [
+    { name: "Elena Marchetti", amount: "$2,840.15", timestamp: hoursAgo(1) },
+    { name: "Kwame Boateng", amount: "$1,975.60", timestamp: hoursAgo(2) },
+    { name: "Priya Nair", amount: "$3,102.90", timestamp: hoursAgo(4) },
+    { name: "Lucas Ferreira", amount: "$1,340.25", timestamp: hoursAgo(6) },
+    { name: "Anastasia Volkov", amount: "$2,567.80", timestamp: hoursAgo(9) },
+    { name: "Tomas Novak", amount: "$1,689.45", timestamp: hoursAgo(23) },
+  ];
+}
+
 export function useLiveRewardsFeed(): LiveRewardsFeedState {
-  const [state, setState] = useState<LiveRewardsFeedState>(INITIAL_LIVE_REWARDS_STATE);
+  const [state, setState] = useState<LiveRewardsFeedState>(() =>
+    import.meta.env.DEV
+      ? { connectionState: "connected", records: mockLiveRewards().slice(0, MAX_LIVE_REWARDS) }
+      : INITIAL_LIVE_REWARDS_STATE,
+  );
 
   useEffect(() => {
     let cancelled = false;
