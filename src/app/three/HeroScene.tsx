@@ -786,7 +786,12 @@ const DUST_VERTEX_SHADER = /* glsl */ `
   }
 `;
 const DUST_FRAGMENT_SHADER = /* glsl */ `
-  precision mediump float;
+  // highp, not mediump — uTime is also a uniform in DUST_VERTEX_SHADER,
+  // which (per GLSL ES spec) defaults floats to highp with no explicit
+  // precision statement; mediump here previously created a precision
+  // mismatch WebGL rejects at link time ("Precisions of uniform 'uTime'
+  // differ between VERTEX and FRAGMENT shaders").
+  precision highp float;
   uniform float uTime;
   varying float vSeed;
   void main() {

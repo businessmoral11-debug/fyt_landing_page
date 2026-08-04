@@ -1939,7 +1939,7 @@ function ProofInNumbers() {
                         <motion.circle
                           r={0.8}
                           fill="rgba(147,197,253,0.9)"
-                          initial={{ opacity: 0 }}
+                          initial={{ cx: line.x1, cy: line.y1, opacity: 0 }}
                           animate={{ cx: [line.x1, line.x2], cy: [line.y1, line.y2], opacity: [0, 1, 0] }}
                           transition={{
                             duration: PROOF_DATA_LINE_LIGHT_DURATION_S,
