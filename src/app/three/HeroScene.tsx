@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame, type RootState } from "@react-three/fiber";
+import { Canvas, useFrame, useThree, type RootState } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
@@ -193,7 +193,7 @@ function AsteroidField() {
         key: "large-left",
         geometry: rock5HiLOD0.geometry,
         material: rock5HiLOD0.material,
-        position: [-5.5, 0.3, -3.6],
+        position: [-5.5, -2.2, -3.6],
         rotation: [0.6, 2.1, -0.3],
         scale: 31.4,
         rotationSpeed: 0.0022,
@@ -320,6 +320,154 @@ function AsteroidField() {
   );
 }
 
+// ─── STARFIELD ───────────────────────────────────────────────────────────────
+// Real photograph reference (NASA-style deep-field), not a game particle
+// system: tiny hard-edged circular points, almost all white, a very small
+// fraction faintly blue/yellow-tinted, no glow/bloom/soft sprites anywhere.
+// Point size is specified directly in CSS pixels (see uPixelRatio below) and
+// held constant regardless of camera distance — realistic stars don't get
+// visibly bigger as the camera drifts a few units, so `sizeAttenuation`-style
+// perspective scaling is deliberately not used.
+const STAR_VERTEX_SHADER = /* glsl */ `
+  attribute float aSize;
+  attribute vec3 aColor;
+  uniform float uPixelRatio;
+  varying vec3 vColor;
+  void main() {
+    vColor = aColor;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    gl_PointSize = aSize * uPixelRatio;
+  }
+`;
+// Hard `discard` past radius 0.5 — a crisp circular cutout with no feathered
+// alpha falloff, so there is no soft/blurry/glow edge at any size.
+const STAR_FRAGMENT_SHADER = /* glsl */ `
+  precision mediump float;
+  varying vec3 vColor;
+  void main() {
+    vec2 centered = gl_PointCoord - vec2(0.5);
+    if (dot(centered, centered) > 0.25) discard;
+    gl_FragColor = vec4(vColor, 1.0);
+  }
+`;
+
+interface StarLayerProps {
+  /** World-space Z depth (negative = further from camera). */
+  depth: number;
+  count: number;
+  /** Point sizes in CSS px for the three size buckets (~90% / ~9% / ~1%). */
+  baseSize: number;
+  midSize: number;
+  brightSize: number;
+  /** Target apparent drift speed in CSS px/sec, left → right. */
+  speedPxPerSec: number;
+}
+
+// One depth layer of the starfield: a tiled, seamlessly-wrapping field of
+// THREE.Points. Two copies of the same geometry sit side by side inside a
+// group (`width` apart, exactly matching the geometry's own random spread —
+// see the position generation below), and only the group's `position.x` is
+// ever touched per frame (a single transform, GPU-friendly, same discipline
+// as the asteroid drift animation). When the group has scrolled by exactly
+// one tile width the modulo wrap snaps it back — because both tiles are the
+// same star pattern, the wrap is visually identical to the frame before it:
+// no popping, no flash, no regeneration.
+function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec }: StarLayerProps) {
+  const { camera, viewport, size, gl } = useThree();
+
+  const { width, height, pxPerUnit } = useMemo(() => {
+    const vp = viewport.getCurrentViewport(camera, [0, 0, depth]);
+    // 35% margin beyond the visible frustum at this depth so a tile never
+    // runs out of stars at the edges, even on very wide viewports.
+    return { width: vp.width * 1.35, height: vp.height * 1.35, pxPerUnit: size.width / vp.width };
+  }, [viewport, camera, depth, size.width]);
+
+  const speed = speedPxPerSec / pxPerUnit;
+
+  const { geometry, material } = useMemo(() => {
+    const positions = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+    const sizes = new Float32Array(count);
+    for (let i = 0; i < count; i++) {
+      positions[i * 3 + 0] = (Math.random() - 0.5) * width;
+      positions[i * 3 + 1] = (Math.random() - 0.5) * height;
+      positions[i * 3 + 2] = depth + (Math.random() - 0.5) * 2;
+
+      // Almost all white; a very small, subtle fraction pale blue/yellow —
+      // never a saturated color.
+      const colorRoll = Math.random();
+      let r = 0.95, g = 0.96, b = 1.0;
+      if (colorRoll < 0.05) {
+        r = 0.75; g = 0.83; b = 1.0; // pale blue
+      } else if (colorRoll < 0.08) {
+        r = 1.0; g = 0.92; b = 0.76; // pale yellow
+      }
+      colors[i * 3 + 0] = r;
+      colors[i * 3 + 1] = g;
+      colors[i * 3 + 2] = b;
+
+      // ~90% tiny base points, ~9% slightly larger, ~1% "slightly
+      // brighter" (bigger, never glowing) — per the reference composition.
+      const sizeRoll = Math.random();
+      sizes[i] = sizeRoll < 0.01 ? brightSize : sizeRoll < 0.1 ? midSize : baseSize;
+    }
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { uPixelRatio: { value: gl.getPixelRatio() } },
+      vertexShader: STAR_VERTEX_SHADER,
+      fragmentShader: STAR_FRAGMENT_SHADER,
+      transparent: true,
+      depthWrite: false,
+    });
+
+    return { geometry: geo, material: mat };
+  }, [count, width, height, depth, baseSize, midSize, brightSize, gl]);
+
+  useEffect(() => {
+    return () => {
+      geometry.dispose();
+      material.dispose();
+    };
+  }, [geometry, material]);
+
+  const group = useRef<THREE.Group>(null);
+
+  useFrame((_, delta) => {
+    const g = group.current;
+    if (!g) return;
+    g.position.x = (g.position.x + speed * delta) % width;
+  });
+
+  return (
+    <group ref={group}>
+      <points geometry={geometry} material={material} />
+      <points geometry={geometry} material={material} position={[width, 0, 0]} />
+    </group>
+  );
+}
+
+// Three depth layers — far (smallest, slowest, densest), middle, and near
+// (largest points, fastest, sparsest) — all drifting left → right at an
+// almost imperceptible speed. The differing depths/speeds, combined with
+// the existing camera parallax in `Rig`, are what create the cinematic
+// depth read; layer placement never overlaps the asteroid field (z ≤ -12,
+// well behind the asteroids at z ≈ -3.6 to -4.8).
+function Starfield() {
+  return (
+    <>
+      <StarLayer depth={-40} count={2200} baseSize={1.0} midSize={1.4} brightSize={1.8} speedPxPerSec={0.5} />
+      <StarLayer depth={-25} count={900} baseSize={1.2} midSize={1.7} brightSize={2.3} speedPxPerSec={0.8} />
+      <StarLayer depth={-15} count={220} baseSize={1.6} midSize={2.1} brightSize={3.0} speedPxPerSec={1.2} />
+    </>
+  );
+}
+
 // ─── CAMERA RIG ──────────────────────────────────────────────────────────────
 // Multiple slow, layered sine periods (never an obviously repeating loop)
 // plus a lerped, low-strength mouse-parallax offset, smoothed and never
@@ -340,14 +488,11 @@ function Rig({ mouse }: { mouse: React.RefObject<{ x: number; y: number }> }) {
 
 // Cinematic deep-space hero backdrop, built around real photogrammetry-
 // scanned rock assets (see ASTEROID_MODEL_URLS) rather than any procedural
-// geometry: a bare dark background plus the fixed 6-asteroid composition
-// (AsteroidField), with slow cinematic camera drift and mouse parallax.
-// No starfield/dust/nebula layer for now — deliberately removed (was
-// reading as distracting glowing sparkle clutter rather than a quiet
-// backdrop); that layer gets rebuilt separately later. Rendered as a
-// background layer behind the existing orbital radar stage (HeroStage in
-// App.tsx) — see HeroSceneGate for the desktop/reduced-motion gating that
-// decides whether this mounts at all.
+// geometry: a realistic THREE.Points starfield (Starfield) behind the fixed
+// 6-asteroid composition (AsteroidField), with slow cinematic camera drift
+// and mouse parallax. Rendered as a background layer behind the existing
+// orbital radar stage (HeroStage in App.tsx) — see HeroSceneGate for the
+// desktop/reduced-motion gating that decides whether this mounts at all.
 export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
 
@@ -391,6 +536,7 @@ export default function HeroScene() {
       />
       <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
 
+      <Starfield />
       <AsteroidField />
       <Rig mouse={mouse} />
     </Canvas>
