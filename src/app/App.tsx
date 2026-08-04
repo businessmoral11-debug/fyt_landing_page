@@ -271,10 +271,11 @@ const HERO_RATING = { score: "4.6", reviews: "1,101" } as const;
 
 // Shared by every gradient pill CTA in this file (Hero primary,
 // ProofInNumbers, Live Payouts, How It Works, Closing CTA) — previously
-// duplicated across each call site.
+// duplicated across each call site. Shadow alpha halved (0.5 -> 0.25) as
+// part of the sitewide "calm, not obvious" pass — see designSystem.ts.
 const PILL_CTA_GRADIENT_STYLE = {
   background: "linear-gradient(180deg, #5A9BFF 0%, #2563EB 100%)",
-  boxShadow: "0px 8px 28px -6px rgba(37,99,235,0.5), inset 0px 1px 0px rgba(255,255,255,0.38)",
+  boxShadow: "0px 8px 28px -6px rgba(37,99,235,0.25), inset 0px 1px 0px rgba(255,255,255,0.38)",
 } as const;
 
 const SUPPORT_CARD_ACCENT_BLUE = "#2563EB";

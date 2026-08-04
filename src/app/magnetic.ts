@@ -1,7 +1,6 @@
 import { useRef, type RefObject } from "react";
 import { useMotionValue, useSpring, type MotionValue } from "motion/react";
-
-const SPRING = { stiffness: 300, damping: 20, mass: 0.5 } as const;
+import { SPRING_CALM } from "@/app/designSystem";
 
 let cachedReduceMotion: boolean | null = null;
 function prefersReducedMotion(): boolean {
@@ -24,8 +23,8 @@ export interface Magnetic<T extends HTMLElement> {
 // element travels relative to the cursor's distance from its center.
 export function useMagnetic<T extends HTMLElement = HTMLElement>(strength = 0.3): Magnetic<T> {
   const ref = useRef<T>(null);
-  const x = useSpring(useMotionValue(0), SPRING);
-  const y = useSpring(useMotionValue(0), SPRING);
+  const x = useSpring(useMotionValue(0), SPRING_CALM);
+  const y = useSpring(useMotionValue(0), SPRING_CALM);
 
   function onMouseMove(e: React.MouseEvent) {
     if (prefersReducedMotion()) return;

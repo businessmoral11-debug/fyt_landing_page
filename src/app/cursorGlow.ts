@@ -1,7 +1,6 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { useMotionValue, useSpring } from "motion/react";
-
-const SPRING = { stiffness: 200, damping: 26, mass: 0.4 } as const;
+import { SPRING_CALM } from "@/app/designSystem";
 
 let cachedReduceMotion: boolean | null = null;
 function prefersReducedMotion(): boolean {
@@ -27,8 +26,8 @@ export interface CursorGlow<T extends HTMLElement> {
 // those two properties; this hook only ever moves its *position*.
 export function useCursorGlow<T extends HTMLElement = HTMLElement>(): CursorGlow<T> {
   const ref = useRef<T>(null);
-  const mx = useSpring(useMotionValue(50), SPRING);
-  const my = useSpring(useMotionValue(50), SPRING);
+  const mx = useSpring(useMotionValue(50), SPRING_CALM);
+  const my = useSpring(useMotionValue(50), SPRING_CALM);
 
   useEffect(() => {
     const unsubX = mx.on("change", (v) => {

@@ -1,7 +1,6 @@
 import { useRef, type RefObject } from "react";
 import { useMotionValue, useSpring, type MotionValue } from "motion/react";
-
-const SPRING = { stiffness: 260, damping: 20, mass: 0.4 } as const;
+import { SPRING_CALM } from "@/app/designSystem";
 
 let cachedReduceMotion: boolean | null = null;
 function prefersReducedMotion(): boolean {
@@ -23,8 +22,8 @@ export interface Tilt<T extends HTMLElement> {
 // to flat on leave. `max` is the peak rotation in degrees at the card's edge.
 export function useTilt<T extends HTMLElement = HTMLElement>(max = 8): Tilt<T> {
   const ref = useRef<T>(null);
-  const rotateX = useSpring(useMotionValue(0), SPRING);
-  const rotateY = useSpring(useMotionValue(0), SPRING);
+  const rotateX = useSpring(useMotionValue(0), SPRING_CALM);
+  const rotateY = useSpring(useMotionValue(0), SPRING_CALM);
 
   function onMouseMove(e: React.MouseEvent) {
     if (prefersReducedMotion()) return;
