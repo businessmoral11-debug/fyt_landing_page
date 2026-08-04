@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback, useMemo, Fragment, type ReactNode } from "react";
+import { createContext, useContext } from "react";
 import { createPortal } from "react-dom";
 import * as Accordion from "@radix-ui/react-accordion";
 import svgPaths from "@/imports/FytLandingPage/svg-1sqldvgw4z";
@@ -120,6 +121,33 @@ import {
   PRODUCT_CHAT_BUTTON_SHEEN_DURATION_S,
   productChatButtonSheen,
 } from "@/app/productShowcaseMotion";
+import {
+  PRICING_PILL_LIFT_Y,
+  PRICING_PILL_LIFT_TRANSITION,
+  pricingCardFloatY,
+  PRICING_CARD_FLOAT_TRANSITION,
+  PRICING_CARD_BREATHE_DURATION_S,
+  PRICING_CARD_BREATHE_OPACITY,
+  PRICING_REFLECTION_SWEEP_TRANSITION,
+  pricingReflectionSweep,
+  PRICING_REFLECTION_SWEEP_INITIAL_X,
+  pricingFlashOpacity,
+  PRICING_FLASH_TRANSITION,
+  PRICING_FLASH_STAGGER_MS,
+  PRICING_SPOTLIGHT_OPACITY,
+  PRICING_CTA_GRADIENT_DURATION_S,
+  pricingCtaGradientPosition,
+  PRICING_PRICE_SPRING,
+  PRICING_PROGRESS_SEGMENT_TRANSITION,
+  PRICING_COMPLETION_LINE_GLOW_DELAY_S,
+  PRICING_COMPLETION_LINE_GLOW_DURATION_S,
+  PRICING_COMPLETION_CARD_PULSE_DELAY_S,
+  PRICING_COMPLETION_CARD_PULSE_DURATION_S,
+  pricingCompletionCardPulse,
+  PRICING_COMPLETION_CTA_GLOW_DELAY_S,
+  PRICING_COMPLETION_CTA_GLOW_DURATION_S,
+  pricingCompletionCtaGlow,
+} from "@/app/pricingMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
 import { useMonotonicProgress } from "@/app/scrollProgress";
@@ -2197,45 +2225,135 @@ const MOBILE_PANEL_TABS: { id: MobilePanelTab; label: string }[] = [
 // stays exactly the layout-visibility class each call site already passes
 // ("flex" / "hidden sm:flex" / "flex sm:hidden"); only the presentation
 // layer inside changed.
+// Threads a per-instance value-change-flash delay (0/80/160ms — see
+// PRICING_FLASH_STAGGER_MS) into PanelCard without adding any prop to its
+// own JSX — contentAssertions.test.ts pins the exact literal
+// `<PanelCard className="...">` tag with no other props at each of its 4
+// call sites, so a Context.Provider WRAPPING that unchanged tag (zero DOM
+// footprint of its own) is how new per-instance data reaches it instead.
+interface PricingFlashContextValue {
+  changeTick: number;
+  delayMs: number;
+  celebrated: boolean;
+}
+const PricingFlashContext = createContext<PricingFlashContextValue>({ changeTick: 0, delayMs: 0, celebrated: false });
+
+// True once `value` has changed at least once since mount — used to drive
+// the configurator's progress line (Step/Type/Platform/Size each "complete"
+// once the trader has actively picked something for it, not merely because
+// every field ships with a default).
+function useTouchedOnChange<T>(value: T): boolean {
+  const [touched, setTouched] = useState(false);
+  const isFirst = useRef(true);
+  useEffect(() => {
+    if (isFirst.current) {
+      isFirst.current = false;
+      return;
+    }
+    setTouched(true);
+  }, [value]);
+  return touched;
+}
+
 function PanelCard({ children, className }: { children: ReactNode; className: string }) {
+  const prefersReducedMotion = useReducedMotion();
+  const { changeTick, delayMs, celebrated } = useContext(PricingFlashContext);
+
   return (
+    // Outer wrapper: continuous idle float (2px/12s) plus, once, the
+    // completion pulse — kept separate from the inner element's own
+    // whileInView/whileHover, which already target opacity/y/boxShadow
+    // (same split used throughout this session's other sections; Framer
+    // Motion can't combine an inherited/explicit target state and an
+    // independent `animate` loop on one component). `y` and `scale` get
+    // their own per-property transitions so the float keeps looping while
+    // the pulse plays exactly once.
     <motion.div
-      className={`${className} group flex-col rounded-[16px] relative`}
-      style={{ border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 44px -20px rgba(0,0,0,0.5)" }}
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, margin: "-60px" }}
-      whileHover={{ y: -4, borderColor: "rgba(59,130,246,0.35)", boxShadow: "0 28px 56px -20px rgba(0,0,0,0.55)" }}
-      transition={{ type: "spring", stiffness: 300, damping: 24 }}
+      animate={prefersReducedMotion ? undefined : { y: pricingCardFloatY, scale: celebrated ? pricingCompletionCardPulse.scale : 1 }}
+      transition={
+        prefersReducedMotion
+          ? undefined
+          : {
+              y: PRICING_CARD_FLOAT_TRANSITION,
+              scale: celebrated
+                ? { duration: PRICING_COMPLETION_CARD_PULSE_DURATION_S, delay: PRICING_COMPLETION_CARD_PULSE_DELAY_S, ease: "easeOut" }
+                : { duration: 0 },
+            }
+      }
     >
-      {/* Everything decorative lives in its own overflow-hidden layer,
-          separate from the card's own box — clipping the outer motion.div
-          directly would also clip ITS OWN box-shadow (the hover-elevation
-          shadow above), a classic overflow-hidden gotcha. */}
-      <div className="absolute inset-0 rounded-[16px] overflow-hidden pointer-events-none" aria-hidden="true">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: "linear-gradient(165deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.02) 100%)",
-            backdropFilter: "blur(16px)",
-            WebkitBackdropFilter: "blur(16px)",
-          }}
-        />
-        {/* Glass reflection — a static diagonal sheen near the top edge, the
-            same trick real glass/acrylic panels use, plus a hairline of soft
-            blue edge light along the top border. */}
-        <div className="absolute inset-x-0 top-0 h-[80px]" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0) 100%)" }} />
-        <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(96,165,250,0.5) 50%, transparent 100%)" }} />
-        {/* Hover glow — driven by the card's own `group` hover state via CSS,
-            not a nested whileHover (a nested pointer-events-none element can
-            never receive its own hover events — the pointer just passes
-            through it to whatever's underneath). */}
-        <div
-          className="absolute -inset-px opacity-0 transition-opacity duration-400 group-hover:opacity-100"
-          style={{ background: "radial-gradient(160px circle at 50% 0%, rgba(59,130,246,0.28), transparent 70%)" }}
-        />
-      </div>
-      <div className="relative flex flex-col gap-[16px] p-[24px]">{children}</div>
+      <motion.div
+        className={`${className} group flex-col rounded-[16px] relative`}
+        style={{ border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 44px -20px rgba(0,0,0,0.5)" }}
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: "-60px" }}
+        whileHover={{ y: -4, borderColor: "rgba(59,130,246,0.35)", boxShadow: "0 28px 56px -20px rgba(0,0,0,0.55)" }}
+        transition={{ type: "spring", stiffness: 300, damping: 24 }}
+      >
+        {/* Everything decorative lives in its own overflow-hidden layer,
+            separate from the card's own box — clipping the outer motion.div
+            directly would also clip ITS OWN box-shadow (the hover-elevation
+            shadow above), a classic overflow-hidden gotcha. */}
+        <div className="absolute inset-0 rounded-[16px] overflow-hidden pointer-events-none" aria-hidden="true">
+          <div
+            className="absolute inset-0"
+            style={{
+              background: "linear-gradient(165deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.02) 100%)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+            }}
+          />
+          {/* Glass reflection — a static diagonal sheen near the top edge, the
+              same trick real glass/acrylic panels use, plus a hairline of soft
+              blue edge light along the top border. */}
+          <div className="absolute inset-x-0 top-0 h-[80px]" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0) 100%)" }} />
+          <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(96,165,250,0.5) 50%, transparent 100%)" }} />
+          {/* Hover glow — driven by the card's own `group` hover state via CSS,
+              not a nested whileHover (a nested pointer-events-none element can
+              never receive its own hover events — the pointer just passes
+              through it to whatever's underneath). */}
+          <div
+            className="absolute -inset-px opacity-0 transition-opacity duration-400 group-hover:opacity-100"
+            style={{ background: "radial-gradient(160px circle at 50% 0%, rgba(59,130,246,0.28), transparent 70%)" }}
+          />
+          {/* Border "breathing" — opacity-only overlay, every 10s. */}
+          {!prefersReducedMotion && (
+            <motion.div
+              aria-hidden="true"
+              className="absolute inset-0 rounded-[16px]"
+              style={{ border: "1px solid rgba(96,165,250,0.4)" }}
+              animate={{ opacity: PRICING_CARD_BREATHE_OPACITY }}
+              transition={{ duration: PRICING_CARD_BREATHE_DURATION_S, repeat: Infinity, ease: "easeInOut" }}
+            />
+          )}
+          {/* Reflection sweep — every 15s. */}
+          {!prefersReducedMotion && (
+            <motion.div
+              aria-hidden="true"
+              className="absolute inset-y-0 w-1/3 pointer-events-none"
+              style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.12), transparent)" }}
+              initial={{ x: PRICING_REFLECTION_SWEEP_INITIAL_X }}
+              animate={pricingReflectionSweep}
+              transition={PRICING_REFLECTION_SWEEP_TRANSITION}
+            />
+          )}
+          {/* Value-change flash — replays via `key={changeTick}` remount
+              whenever a selection changes; delayMs gives this panel its
+              80ms-staggered turn (see PricingFlashContext above). */}
+          {!prefersReducedMotion && changeTick > 0 && (
+            <motion.div
+              key={changeTick}
+              aria-hidden="true"
+              className="absolute inset-0"
+              style={{ background: "#3b82f6" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: pricingFlashOpacity }}
+              transition={{ ...PRICING_FLASH_TRANSITION, delay: delayMs / 1000 }}
+            />
+          )}
+        </div>
+        <div className="relative flex flex-col gap-[16px] p-[24px]">{children}</div>
+      </motion.div>
     </motion.div>
   );
 }
@@ -2282,11 +2400,52 @@ function Pricing() {
   const [mobilePanelTab, setMobilePanelTab] = useState<MobilePanelTab>("rules");
   const checkoutMagnet = useMagnetic<HTMLDivElement>(0.2);
   const reduceMotion = useReducedMotion();
+  const spotlight = useCursorGlow<HTMLDivElement>();
+
+  // Progress line: each of the 4 groups "completes" once the trader has
+  // actively changed it at least once (see useTouchedOnChange above).
+  const stepTouched = useTouchedOnChange(step);
+  const planTouched = useTouchedOnChange(plan);
+  const platformTouched = useTouchedOnChange(platform);
+  const sizeTouched = useTouchedOnChange(size);
+  const allTouched = stepTouched && planTouched && platformTouched && sizeTouched;
+  // One-time completion celebration, guarded so it only ever plays once
+  // per page visit (never replays if the trader keeps changing selections
+  // after the first time all 4 are touched).
+  const [celebrated, setCelebrated] = useState(false);
+  useEffect(() => {
+    if (allTouched) setCelebrated(true);
+  }, [allTouched]);
+
+  // Replays PanelCard's value-change flash (see PricingFlashContext) — a
+  // fresh tick on every selection change, skipping the initial mount.
+  const [changeTick, setChangeTick] = useState(0);
+  const isFirstChangeRender = useRef(true);
+  useEffect(() => {
+    if (isFirstChangeRender.current) {
+      isFirstChangeRender.current = false;
+      return;
+    }
+    setChangeTick((t) => t + 1);
+  }, [step, plan, platform, size]);
 
   const entry = getEntry(step, plan, platform, size)!;
   const planLabel = STEP_PLANS[step].find((p) => p.id === plan)?.label ?? "";
   const platformLabel = PLATFORM_OPTIONS.find((p) => p.id === platform)?.label ?? "";
   const sizeLabel = fmtSize(size);
+
+  // Price counts smoothly through intermediate values instead of snapping —
+  // persistent spring, ref-driven textContent writes (see the price <p> in
+  // the JSX below for why: same technique as ProofInNumbers' CountUpStat).
+  const priceRef = useRef<HTMLParagraphElement>(null);
+  const priceMotionValue = useMotionValue(entry.priceNew);
+  const priceSpring = useSpring(priceMotionValue, PRICING_PRICE_SPRING);
+  useEffect(() => {
+    priceMotionValue.set(entry.priceNew);
+  }, [entry.priceNew, priceMotionValue]);
+  useMotionValueEvent(priceSpring, "change", (v) => {
+    if (priceRef.current) priceRef.current.textContent = `$${v.toFixed(2)}`;
+  });
 
   function handleStepChange(next: StepId) {
     setStep(next);
@@ -2340,7 +2499,12 @@ function Pricing() {
 
   return (
     <div id="challenge" className="relative shrink-0 w-full">
-      <div className="overflow-clip rounded-[inherit] size-full relative">
+      <div
+        ref={spotlight.ref}
+        onMouseMove={spotlight.onMouseMove}
+        onMouseLeave={spotlight.onMouseLeave}
+        className="overflow-clip rounded-[inherit] size-full relative"
+      >
         {/* Ambient backdrop — two slow-drifting glows plus a barely-visible
             grain layer, purely decorative (aria-hidden, pointer-events-none)
             and sitting behind every interactive element below. */}
@@ -2348,6 +2512,11 @@ function Pricing() {
           <AmbientBlob className="left-[4%] top-[6%]" color="rgba(59,130,246,0.1)" size={580} duration={27} />
           <AmbientBlob className="right-[6%] bottom-[10%]" color="rgba(96,165,250,0.07)" size={460} duration={22} />
           <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: PRICING_NOISE_BG }} />
+          {/* Mouse spotlight over the whole configurator — very subtle. */}
+          <div
+            className="absolute inset-0"
+            style={{ background: `radial-gradient(500px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(96,165,250,${PRICING_SPOTLIGHT_OPACITY}), transparent 70%)` }}
+          />
         </div>
         <div className="content-stretch flex flex-col gap-[32px] lg:gap-[48px] items-start px-[20px] py-[48px] lg:px-[88px] lg:py-[140px] relative size-full">
           <div className="flex flex-col lg:flex-row gap-[24px] lg:gap-[32px] items-start lg:items-center w-full">
@@ -2398,6 +2567,37 @@ function Pricing() {
             </button>
           </div>
 
+          {/* Progress line — 4 segments (Step/Type/Platform/Size), each
+              filling in once the trader has actively picked something for
+              that group (see useTouchedOnChange). Also the "connection
+              line" that glows once, as the first beat of the completion
+              sequence, once every segment is lit. */}
+          <div className="flex gap-[6px] w-full" aria-hidden="true">
+            {[stepTouched, planTouched, platformTouched, sizeTouched].map((touched, i) => (
+              <div key={i} className="flex-1 h-[2px] rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                <motion.div
+                  className="h-full rounded-full origin-left"
+                  style={{ background: "#3b82f6" }}
+                  initial={{ scaleX: 0 }}
+                  animate={{
+                    scaleX: touched ? 1 : 0,
+                    boxShadow:
+                      celebrated && !reduceMotion
+                        ? ["0 0 4px rgba(59,130,246,0.4)", "0 0 16px rgba(59,130,246,0.9)", "0 0 4px rgba(59,130,246,0.4)"]
+                        : touched
+                        ? "0 0 4px rgba(59,130,246,0.4)"
+                        : "none",
+                  }}
+                  transition={
+                    celebrated && !reduceMotion
+                      ? { scaleX: PRICING_PROGRESS_SEGMENT_TRANSITION, boxShadow: { duration: PRICING_COMPLETION_LINE_GLOW_DURATION_S, delay: PRICING_COMPLETION_LINE_GLOW_DELAY_S, ease: "easeOut" } }
+                      : PRICING_PROGRESS_SEGMENT_TRANSITION
+                  }
+                />
+              </div>
+            ))}
+          </div>
+
           {/* Controls — row 1: three segmented controls (model | type | platform); row 2: full-width size */}
           <div className="flex flex-col gap-[24px] w-full">
             <div className="flex flex-col lg:flex-row gap-[24px] w-full">
@@ -2412,8 +2612,9 @@ function Pricing() {
                         key={id}
                         onClick={() => handleStepChange(id)}
                         aria-pressed={active}
-                        className="relative flex-1 flex items-center justify-center gap-[8px] py-[12px] cursor-pointer rounded-[10px] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
+                        className="relative flex-1 flex items-center justify-center gap-[8px] py-[12px] cursor-pointer rounded-[10px] transition-[transform,translate] duration-200 hover:scale-[1.02] active:scale-[0.96]"
                         style={{
+                          translate: active ? "0 -3px" : "0 0",
                           ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                         }}
                       >
@@ -2457,9 +2658,10 @@ function Pricing() {
                         key={opt.id}
                         onClick={() => setPlan(opt.id)}
                         aria-pressed={active}
-                        className="relative flex-1 flex flex-col items-center justify-center gap-[2px] py-[10px] cursor-pointer rounded-[10px] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
+                        className="relative flex-1 flex flex-col items-center justify-center gap-[2px] py-[10px] cursor-pointer rounded-[10px] transition-[transform,translate] duration-200 hover:scale-[1.02] active:scale-[0.96]"
                         style={{
                           color: active ? "#3b82f6" : "#9da2b4",
+                          translate: active ? "0 -3px" : "0 0",
                           ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                         }}
                       >
@@ -2510,8 +2712,9 @@ function Pricing() {
                         key={opt.id}
                         onClick={() => setPlatform(opt.id)}
                         aria-pressed={active}
-                        className="relative flex-1 flex items-center justify-center py-[12px] cursor-pointer rounded-[10px] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
+                        className="relative flex-1 flex items-center justify-center py-[12px] cursor-pointer rounded-[10px] transition-[transform,translate] duration-200 hover:scale-[1.02] active:scale-[0.96]"
                         style={{
+                          translate: active ? "0 -3px" : "0 0",
                           ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                         }}
                       >
@@ -2542,7 +2745,8 @@ function Pricing() {
                       key={value}
                       onClick={() => setSize(value)}
                       aria-pressed={active}
-                      className="relative flex-1 flex items-center justify-center py-[12px] rounded-[10px] cursor-pointer transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
+                      className="relative flex-1 flex items-center justify-center py-[12px] rounded-[10px] cursor-pointer transition-[transform,translate] duration-200 hover:scale-[1.02] active:scale-[0.96]"
+                      style={{ translate: active ? "0 -3px" : "0 0" }}
                     >
                       {active ? (
                         <motion.div
@@ -2571,6 +2775,7 @@ function Pricing() {
           {/* Results panel — 3 columns */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-[16px] w-full">
             {/* Your Selection */}
+            <PricingFlashContext.Provider value={{ changeTick, delayMs: 0, celebrated }}>
             <PanelCard className="flex">
               <div className="flex items-center gap-[8px]">
                 <PanelIcon kind="person" />
@@ -2615,8 +2820,14 @@ function Pricing() {
                     className="font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[14px] line-through"
                   >${entry.priceOld.toFixed(2)}</motion.p>
                 )}
+                {/* Counts smoothly through intermediate values via a
+                    persistent spring (ref + useMotionValueEvent writing
+                    textContent directly, same technique as ProofInNumbers'
+                    CountUpStat) rather than a key-remount pop-in — no `key`
+                    here anymore so the element (and the spring following
+                    it) persists across value changes instead of restarting. */}
                 <motion.p
-                  key={entry.priceNew}
+                  ref={priceRef}
                   initial={{ opacity: 0, y: -10, scale: 0.94 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   transition={{ type: "spring", stiffness: 380, damping: 26 }}
@@ -2646,10 +2857,44 @@ function Pricing() {
                   className="absolute inset-0 rounded-[6px] pointer-events-none opacity-0 transition-opacity duration-300 group-hover:opacity-100"
                   style={{ background: "radial-gradient(140px circle at 50% 0%, rgba(255,255,255,0.4), transparent 70%)" }}
                 />
-                <a href={checkoutUrl(entry.productId)} className="bg-[#3b82f6] rounded-[6px] shrink-0 w-full block no-underline relative">
-                  <div className="flex items-center justify-center gap-[8px] py-[13px]">
+                <a href={checkoutUrl(entry.productId)} className="bg-[#3b82f6] rounded-[6px] shrink-0 w-full block no-underline relative overflow-hidden">
+                  {/* Slow gradient shift — the base bg-[#3b82f6] is unchanged;
+                      this is a low-opacity animated overlay on top of it, not
+                      a change to the button's own resting color. */}
+                  {!reduceMotion && (
+                    <motion.div
+                      aria-hidden="true"
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: "linear-gradient(120deg, transparent, rgba(255,255,255,0.18), transparent, rgba(96,165,250,0.25), transparent)",
+                        backgroundSize: "300% 300%",
+                      }}
+                      animate={pricingCtaGradientPosition}
+                      transition={{ duration: PRICING_CTA_GRADIENT_DURATION_S, repeat: Infinity, ease: "linear" }}
+                    />
+                  )}
+                  {/* Completion glow — plays once, when all 4 groups have
+                      been touched (see `celebrated`). */}
+                  {celebrated && !reduceMotion && (
+                    <motion.div
+                      aria-hidden="true"
+                      className="absolute inset-0 pointer-events-none"
+                      initial={{ boxShadow: "0 0 0px rgba(59,130,246,0)" }}
+                      animate={pricingCompletionCtaGlow}
+                      transition={{ duration: PRICING_COMPLETION_CTA_GLOW_DURATION_S, delay: PRICING_COMPLETION_CTA_GLOW_DELAY_S, ease: "easeOut" }}
+                    />
+                  )}
+                  <div className="relative flex items-center justify-center gap-[8px] py-[13px]">
                     <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] text-white">Start Challenge</p>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      className="transition-transform duration-300 group-hover:translate-x-[6px]"
+                    >
+                      <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
                   </div>
                 </a>
               </motion.div>
@@ -2657,8 +2902,10 @@ function Pricing() {
                 <PanelIcon kind="shield" /> Secure checkout · Instant access
               </p>
             </PanelCard>
+            </PricingFlashContext.Provider>
 
             {/* Key Rules — tablet/desktop only (>=640px); merged into the mobile chip switcher below */}
+            <PricingFlashContext.Provider value={{ changeTick, delayMs: PRICING_FLASH_STAGGER_MS, celebrated }}>
             <PanelCard className="hidden sm:flex">
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-[8px]"><PanelIcon kind="shield-check" /><p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#eef0f6] text-[14px]">Key Rules</p></span>
@@ -2669,8 +2916,10 @@ function Pricing() {
                 <PanelIcon kind="shield-check" /> Designed for consistency. Built for growth.
               </p>
             </PanelCard>
+            </PricingFlashContext.Provider>
 
             {/* Why traders choose this — tablet/desktop only (>=640px); merged into the mobile chip switcher below */}
+            <PricingFlashContext.Provider value={{ changeTick, delayMs: PRICING_FLASH_STAGGER_MS * 2, celebrated }}>
             <PanelCard className="hidden sm:flex">
               <div className="flex items-center gap-[8px]">
                 <PanelIcon kind="star" />
@@ -2678,8 +2927,10 @@ function Pricing() {
               </div>
               <WhyChoiceBullets bullets={traderChoiceBullets} />
             </PanelCard>
+            </PricingFlashContext.Provider>
 
             {/* Key Rules / Why traders choose this — mobile only (<640px), merged behind a chip switcher */}
+            <PricingFlashContext.Provider value={{ changeTick, delayMs: PRICING_FLASH_STAGGER_MS, celebrated }}>
             <PanelCard className="flex sm:hidden">
               <div className="flex rounded-[10px]" role="group" aria-label="Show Key Rules or Why traders choose this" style={{ border: "1px solid rgba(255,255,255,0.1)" }}>
                 {MOBILE_PANEL_TABS.map((opt, i, arr) => {
@@ -2736,6 +2987,7 @@ function Pricing() {
                 )}
               </AnimatePresence>
             </PanelCard>
+            </PricingFlashContext.Provider>
           </div>
         </div>
       </div>
