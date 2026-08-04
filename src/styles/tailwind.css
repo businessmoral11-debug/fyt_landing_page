@@ -8,25 +8,26 @@
   100% { transform: translate3d(-50%, 0, 0); }
 }
 
-/* Proof in Numbers: a soft blue-white shimmer sweeping across a count-up
-   number, gated behind [data-shimmer="true"] (omitted under reduced
-   motion). Most of each 9s cycle sits still at background-position 200%
-   (the gradient band parked off to the side, so the text reads as plain
-   solid color) with a brief sweep from 85% to 92% of the cycle — see
-   PROOF_SHIMMER_CYCLE_S / PROOF_SHIMMER_DELAY_S in proofInNumbersMotion.ts
-   for the source-of-truth timing values this keyframe's usage is set from. */
-@keyframes proof-shimmer {
+/* Shared "count-up number shimmer" utility — a soft blue-white shimmer
+   sweeping across an animated number, gated behind [data-shimmer="true"]
+   (omitted under reduced motion). Used by both ProofInNumbers' CountUpStat
+   and the Recent Rewards reward-amount cards. Most of each cycle sits still
+   at background-position 200% (the gradient band parked off to the side,
+   so the text reads as plain solid color) with a brief sweep from 85% to
+   92% of the cycle. Default cadence (9s cycle / 1.6s initial delay) can be
+   overridden per-usage via inline `animationDuration`/`animationDelay`. */
+@keyframes count-shimmer {
   0%, 85%, 100% { background-position: 200% 0; }
   92% { background-position: -200% 0; }
 }
 
-.proof-stat-number[data-shimmer="true"] {
+.count-shimmer[data-shimmer="true"] {
   background-image: linear-gradient(110deg, currentColor 40%, #eaf2ff 50%, currentColor 60%);
   background-size: 250% 100%;
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: proof-shimmer 9s ease-in-out infinite;
+  animation: count-shimmer 9s ease-in-out infinite;
   animation-delay: 1.6s;
 }
 

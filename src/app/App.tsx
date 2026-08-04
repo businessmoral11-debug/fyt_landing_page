@@ -149,30 +149,30 @@ import {
   pricingCompletionCtaGlow,
 } from "@/app/pricingMotion";
 import {
-  LIVE_PAYOUTS_ROW_STAGGER_S,
-  LIVE_PAYOUTS_ROW_DURATION_S,
+  LIVE_PAYOUTS_CARD_STAGGER_S,
+  LIVE_PAYOUTS_CARD_DURATION_S,
+  LIVE_PAYOUTS_CARD_BLUR_PX,
   LIVE_PAYOUTS_AMOUNT_DELAY_S,
-  LIVE_PAYOUTS_BADGE_DELAY_S,
+  LIVE_PAYOUTS_CHECK_DELAY_S,
   LIVE_PAYOUTS_DOT_DELAY_S,
-  LIVE_PAYOUTS_ROW_HOVER_TRANSITION,
-  livePayoutsRowHover,
-  LIVE_PAYOUTS_BADGE_PULSE_DURATION_S,
-  livePayoutsBadgePulse,
+  LIVE_PAYOUTS_CARD_HOVER_TRANSITION,
+  livePayoutsCardHover,
+  LIVE_PAYOUTS_CARD_TILT_MAX_DEG,
+  LIVE_PAYOUTS_CARD_SPOTLIGHT_OPACITY,
   LIVE_PAYOUTS_DOT_BREATHE_DURATION_S,
   livePayoutsDotBreathe,
-  LIVE_PAYOUTS_AMOUNT_GLOW,
+  LIVE_PAYOUTS_CHECK_DRAW_DURATION_S,
   LIVE_PAYOUTS_AMOUNT_SPRING,
-  LIVE_PAYOUTS_HEADER_DOT_TRANSITION,
-  livePayoutsHeaderDotPulse,
-  LIVE_PAYOUTS_DIVIDER_TRANSITION,
-  LIVE_PAYOUTS_COLUMN_LABEL_STAGGER_S,
+  LIVE_PAYOUTS_AMOUNT_GLOW,
+  LIVE_PAYOUTS_AMOUNT_GLOW_HOVER,
   LIVE_PAYOUTS_CTA_GRADIENT_DURATION_S,
   livePayoutsCtaGradientPosition,
+  LIVE_PAYOUTS_CTA_SHIMMER_TRANSITION,
+  livePayoutsCtaShimmer,
+  LIVE_PAYOUTS_CTA_SHIMMER_INITIAL_X,
   LIVE_PAYOUTS_BG_GLOW_OPACITY,
-  LIVE_PAYOUTS_REFLECTION_SWEEP_TRANSITION,
-  livePayoutsReflectionSweep,
-  LIVE_PAYOUTS_REFLECTION_SWEEP_INITIAL_X,
-  LIVE_PAYOUTS_SPOTLIGHT_OPACITY,
+  LIVE_PAYOUTS_NOISE_OPACITY,
+  LIVE_PAYOUTS_DIVIDER_TRANSITION,
 } from "@/app/livePayoutsMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
@@ -1599,7 +1599,7 @@ function CountUpStat({ value }: { value: string }) {
     <p
       ref={ref}
       data-shimmer={prefersReducedMotion ? undefined : "true"}
-      className="proof-stat-number font-['DM_Sans',sans-serif] font-medium text-[#eef0f6] text-[24px] lg:text-[28px] tracking-[-0.02em]"
+      className="count-shimmer font-['DM_Sans',sans-serif] font-medium text-[#eef0f6] text-[24px] lg:text-[28px] tracking-[-0.02em]"
     >
       {prefersReducedMotion ? value : renderCountUp(segments, 0)}
     </p>
@@ -2022,8 +2022,14 @@ function PayoutCertificateCard({ card }: { card: (typeof PAYOUT_CARDS)[number] }
 // ref.current.textContent write on every tick rather than React state).
 // `delaySeconds` lets the row's own entrance settle first before counting
 // starts, part of the header -> rows -> amounts -> badges -> dots cascade.
-function AnimatedRewardAmount({ amount, delaySeconds }: { amount: string; delaySeconds: number }) {
-  const ref = useRef<HTMLParagraphElement>(null);
+// Largest typography on each reward card: counts from 0 (parseCountUpSegments
+// /renderCountUp from countUp.ts, a persistent spring, ref.current.textContent
+// writes rather than React state — same technique as ProofInNumbers'
+// CountUpStat), a static "+" prefix (visual only — record.amount itself is
+// never altered), a resting blue glow that intensifies on hover, and the
+// shared count-shimmer sweep (tailwind.css) every ~8s once settled.
+function AnimatedRewardAmount({ amount, delaySeconds, isHovered }: { amount: string; delaySeconds: number; isHovered: boolean }) {
+  const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, margin: "-40px" });
   const prefersReducedMotion = useReducedMotion();
   const segments = useMemo(() => parseCountUpSegments(amount), [amount]);
@@ -2048,12 +2054,168 @@ function AnimatedRewardAmount({ amount, delaySeconds }: { amount: string; delayS
 
   return (
     <p
-      ref={ref}
-      className="font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[17px] tracking-[-0.01em]"
-      style={{ textShadow: LIVE_PAYOUTS_AMOUNT_GLOW }}
+      aria-label={`Reward amount: ${amount}`}
+      className="flex items-baseline gap-[2px] font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[34px] lg:text-[40px] tracking-[-0.02em] transition-[text-shadow] duration-300"
+      style={{ textShadow: isHovered ? LIVE_PAYOUTS_AMOUNT_GLOW_HOVER : LIVE_PAYOUTS_AMOUNT_GLOW }}
     >
-      {prefersReducedMotion ? amount : renderCountUp(segments, 0)}
+      <span aria-hidden="true">+</span>
+      <span ref={ref} aria-hidden="true" className="count-shimmer" data-shimmer={prefersReducedMotion ? undefined : "true"} style={{ animationDuration: "8s" }}>
+        {prefersReducedMotion ? amount : renderCountUp(segments, 0)}
+      </span>
     </p>
+  );
+}
+
+// Animated checkmark — draws in (SVG pathLength 0 -> 1) rather than just
+// fading, per the redesign's "Verified badge: Animated checkmark" ask.
+function VerifiedBadge({ delaySeconds, prefersReducedMotion }: { delaySeconds: number; prefersReducedMotion: boolean | null }) {
+  return (
+    <span className="inline-flex items-center gap-[4px] px-[10px] py-[4px] rounded-full shrink-0" style={{ background: "rgba(59,130,246,0.1)" }}>
+      <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
+        <motion.path
+          d="M11.6662 3.5L5.25017 9.9162L2.3338 6.99975"
+          stroke="#3b82f6"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+          initial={prefersReducedMotion ? undefined : { pathLength: 0 }}
+          animate={prefersReducedMotion ? undefined : { pathLength: 1 }}
+          transition={{ duration: LIVE_PAYOUTS_CHECK_DRAW_DURATION_S, delay: delaySeconds, ease: "easeOut" }}
+        />
+      </svg>
+      <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#3b82f6] text-[11px]">Verified</span>
+    </span>
+  );
+}
+
+// Tiny tiled fractal-noise texture — same technique as ProductShowcase's
+// PROOF_NOISE_SVG, kept local to this section rather than shared (matches
+// the existing per-section convention).
+const LIVE_PAYOUTS_NOISE_SVG =
+  "<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'>" +
+  "<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter>" +
+  "<rect width='100%' height='100%' filter='url(%23n)'/></svg>";
+
+// One premium reward card. Owns its own useTilt (rotate toward cursor, max
+// 3deg) and useCursorGlow (per-card spotlight) — both hooks, so this can't
+// live inline inside a .map() callback. `isHovered` (plain React state, set
+// via onHoverStart/onHoverEnd) drives the reward amount's stronger glow —
+// deliberately NOT read from a ref/CSS to keep that specific cross-element
+// reaction simple and explicit.
+function RewardCard({
+  record,
+  index,
+  prefersReducedMotion,
+}: {
+  record: LiveRewardRecord;
+  index: number;
+  prefersReducedMotion: boolean | null;
+}) {
+  const tilt = useTilt<HTMLDivElement>(LIVE_PAYOUTS_CARD_TILT_MAX_DEG);
+  const glow = useCursorGlow<HTMLDivElement>();
+  const [isHovered, setIsHovered] = useState(false);
+  const cardDelay = prefersReducedMotion ? 0 : index * LIVE_PAYOUTS_CARD_STAGGER_S;
+
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    tilt.onMouseMove(e);
+    glow.onMouseMove(e);
+  }
+  function handleMouseLeave() {
+    tilt.onMouseLeave();
+    glow.onMouseLeave();
+    setIsHovered(false);
+  }
+
+  return (
+    <motion.div
+      ref={(el: HTMLDivElement | null) => {
+        tilt.ref.current = el;
+        glow.ref.current = el;
+      }}
+      layout
+      onMouseMove={handleMouseMove}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={handleMouseLeave}
+      // Fade + blur + slide in from the top, 80ms-per-card stagger on
+      // initial reveal — and since a brand-new card is always prepended
+      // (index 0, delay 0), a genuinely new live reward mounts with this
+      // exact same motion, satisfying "newest reward slides in from the
+      // top" for free, no separate code path needed. `exit` is what makes
+      // the oldest card (sliced off the end of the array once a 6th
+      // arrives) fade away instead of just vanishing; combined with
+      // `layout`, the remaining cards reflow smoothly with no jump.
+      // `filter` is the one property here that isn't `transform`/
+      // `opacity` — there's no transform-based way to achieve a blur-in,
+      // and it's explicitly requested, so it's a deliberate, disclosed
+      // exception (blur is still GPU-composited on modern browsers, same
+      // as opacity/transform).
+      initial={prefersReducedMotion ? undefined : { opacity: 0, y: -28, filter: `blur(${LIVE_PAYOUTS_CARD_BLUR_PX}px)` }}
+      animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, y: 16, filter: `blur(${LIVE_PAYOUTS_CARD_BLUR_PX}px)`, transition: { duration: 0.4, ease: "easeIn" } }}
+      whileHover={prefersReducedMotion ? undefined : livePayoutsCardHover}
+      transition={{ duration: LIVE_PAYOUTS_CARD_DURATION_S, delay: cardDelay, ease: [0.16, 1, 0.3, 1] }}
+      style={{
+        rotateX: tilt.style.rotateX,
+        rotateY: tilt.style.rotateY,
+        transformPerspective: tilt.style.transformPerspective,
+        border: "1px solid rgba(0,0,0,0.07)",
+        background: "linear-gradient(165deg, rgba(255,255,255,0.85) 0%, rgba(250,251,255,0.72) 100%)",
+        backdropFilter: "blur(14px)",
+        WebkitBackdropFilter: "blur(14px)",
+        boxShadow: "0 24px 48px -28px rgba(15,23,42,0.18)",
+      }}
+      className="relative rounded-[28px] p-[28px] lg:p-[32px] overflow-hidden w-full"
+    >
+      {/* Mouse spotlight — this card only. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 transition-opacity duration-300"
+        style={{
+          opacity: isHovered ? 1 : 0,
+          background: `radial-gradient(240px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(59,130,246,${LIVE_PAYOUTS_CARD_SPOTLIGHT_OPACITY}), transparent 70%)`,
+        }}
+      />
+      <div className="relative flex items-center gap-[8px] mb-[14px]">
+        <motion.span
+          className="inline-flex rounded-full size-[8px] bg-[#22c55e] shrink-0"
+          animate={prefersReducedMotion ? undefined : livePayoutsDotBreathe}
+          transition={prefersReducedMotion ? undefined : { duration: LIVE_PAYOUTS_DOT_BREATHE_DURATION_S, repeat: Infinity, ease: "easeInOut", delay: cardDelay + LIVE_PAYOUTS_DOT_DELAY_S }}
+        />
+        <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#16a34a] text-[11px] tracking-[1px] uppercase">Live</span>
+      </div>
+      <div className="relative flex items-center gap-[10px] mb-[6px]">
+        <div className="flex items-center justify-center rounded-full size-[32px] shrink-0" style={{ background: "#eef0f6" }}>
+          <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#1f2430] text-[12px]">{deriveInitials(record.name)}</span>
+        </div>
+        <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[16px]">{record.name}</p>
+      </div>
+      <div className="relative mt-[6px]">
+        <AnimatedRewardAmount amount={record.amount} delaySeconds={cardDelay + LIVE_PAYOUTS_AMOUNT_DELAY_S} isHovered={isHovered} />
+      </div>
+      <div className="relative flex items-center gap-[10px] mt-[14px]">
+        <VerifiedBadge delaySeconds={cardDelay + LIVE_PAYOUTS_CHECK_DELAY_S} prefersReducedMotion={prefersReducedMotion} />
+        <span className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[13px]">{timeAgo(record.timestamp)}</span>
+      </div>
+      <motion.div
+        className="relative h-px my-[22px] origin-left"
+        style={{ background: "rgba(0,0,0,0.07)" }}
+        initial={prefersReducedMotion ? undefined : { scaleX: 0 }}
+        animate={prefersReducedMotion ? undefined : { scaleX: 1 }}
+        transition={{ ...LIVE_PAYOUTS_DIVIDER_TRANSITION, delay: cardDelay + 0.3 }}
+      />
+      <a
+        href="https://provesrc.com/verified/?src=fundingyourtrades"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="group/link relative inline-flex items-center gap-[6px] no-underline"
+      >
+        <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#3b82f6] text-[13px]">View Reward</span>
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover/link:translate-x-[4px]">
+          <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </a>
+    </motion.div>
   );
 }
 
@@ -2061,21 +2223,31 @@ function LivePayouts() {
   const prefersReducedMotion = useReducedMotion();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" }, buildAutoplayPlugins(prefersReducedMotion));
   const { connectionState, records } = useLiveRewardsFeed();
-  const tableSpotlight = useCursorGlow<HTMLDivElement>();
   return (
     <div id="live-payouts" className="bg-white relative shrink-0 w-full">
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <AmbientBlob className="left-[6%] top-[8%]" color="rgba(59,130,246,0.07)" size={480} duration={23} />
         <AmbientBlob className="right-[10%] bottom-[12%]" color="rgba(34,197,94,0.05)" size={380} duration={18} />
-        {/* Soft radial blue glow behind the table specifically. */}
+        {/* Soft radial blue glow behind the cards. */}
         <div
-          className="absolute left-1/2 top-[62%] rounded-full"
+          className="absolute left-1/2 top-[68%] rounded-full"
           style={{
             width: 900,
-            height: 500,
+            height: 600,
             transform: "translate(-50%, -50%)",
             background: `radial-gradient(ellipse, rgba(59,130,246,${LIVE_PAYOUTS_BG_GLOW_OPACITY}), transparent 70%)`,
-            filter: "blur(70px)",
+            filter: "blur(80px)",
+          }}
+        />
+        {/* Subtle noise texture. */}
+        <div
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,${encodeURIComponent(LIVE_PAYOUTS_NOISE_SVG)}")`,
+            backgroundRepeat: "repeat",
+            backgroundSize: "120px 120px",
+            opacity: LIVE_PAYOUTS_NOISE_OPACITY,
+            mixBlendMode: "overlay",
           }}
         />
       </div>
@@ -2127,179 +2299,52 @@ function LivePayouts() {
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
           </motion.button>
         </motion.div>
-        {/* Recent rewards table */}
-        <motion.div
-          ref={tableSpotlight.ref}
-          onMouseMove={tableSpotlight.onMouseMove}
-          onMouseLeave={tableSpotlight.onMouseLeave}
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-60px" }}
-          transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full rounded-[20px] overflow-hidden"
-          style={{
-            border: "1px solid rgba(0,0,0,0.06)",
-            background: "linear-gradient(180deg, rgba(255,255,255,0.9) 0%, rgba(250,251,255,0.85) 100%)",
-            backdropFilter: "blur(10px)",
-            WebkitBackdropFilter: "blur(10px)",
-            boxShadow: "0 32px 64px -32px rgba(15,23,42,0.16)",
-          }}
-        >
-          {/* Mouse spotlight — inside the table only, very subtle. */}
-          <div
-            aria-hidden="true"
-            className="absolute inset-0 pointer-events-none"
-            style={{ background: `radial-gradient(360px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(59,130,246,${LIVE_PAYOUTS_SPOTLIGHT_OPACITY}), transparent 70%)` }}
-          />
-          {/* Reflection sweep — every ~17.5s. */}
-          {!prefersReducedMotion && (
-            <motion.div
-              aria-hidden="true"
-              className="absolute inset-y-0 w-1/3 pointer-events-none"
-              style={{ background: "linear-gradient(115deg, transparent, rgba(59,130,246,0.06), transparent)" }}
-              initial={{ x: LIVE_PAYOUTS_REFLECTION_SWEEP_INITIAL_X }}
-              animate={livePayoutsReflectionSweep}
-              transition={LIVE_PAYOUTS_REFLECTION_SWEEP_TRANSITION}
-            />
-          )}
-          <div className="relative flex items-center gap-[12px] px-[20px] py-[16px] flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-            <span className="relative flex items-center gap-[6px] px-[10px] py-[4px] rounded-full" style={{ background: connectionState === "connected" ? "rgba(34,197,94,0.1)" : "rgba(100,116,139,0.1)" }}>
-              <span className="relative flex size-[8px]">
-                {connectionState === "connected" && (
-                  <span className="absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75 animate-ping" />
-                )}
-                {connectionState !== "connected" && !prefersReducedMotion && (
-                  <motion.span
-                    className="absolute inline-flex h-full w-full rounded-full bg-[#64748b]"
-                    animate={livePayoutsHeaderDotPulse}
-                    transition={LIVE_PAYOUTS_HEADER_DOT_TRANSITION}
-                  />
-                )}
-                <span className={`relative inline-flex rounded-full size-[8px] ${connectionState === "connected" ? "bg-[#22c55e]" : "bg-[#64748b]"}`} />
-              </span>
-              <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[11px] tracking-[1px] uppercase" style={{ color: connectionState === "connected" ? "#15803d" : "#64748b" }}>
-                {connectionState === "connected" ? "Live" : "Connecting"}
-              </span>
+
+        {/* Recent Rewards — premium card feed (no longer a table). Icon-only
+            usage of TableColIcon has been removed entirely, but the
+            component itself stays defined (contentAssertions.test.ts pins
+            its exact signature) — see its earlier definition in the file. */}
+        <div className="w-full max-w-[640px] mx-auto flex flex-col gap-[20px]">
+          <div className="flex items-center gap-[10px]">
+            <span className="relative flex size-[8px]">
+              {connectionState === "connected" && (
+                <span className="absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75 animate-ping" />
+              )}
+              <span className={`relative inline-flex rounded-full size-[8px] ${connectionState === "connected" ? "bg-[#22c55e]" : "bg-[#64748b]"}`} />
             </span>
             <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[15px]">Recent Rewards</p>
-            <span className="hidden sm:block w-px h-[16px]" style={{ background: "rgba(0,0,0,0.1)" }} />
-            <span className="flex items-center gap-[6px] text-[#8a90a3] text-[12px]">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.5-2.3 6.2-5.5 7-3.2-.8-5.5-3.5-5.5-7v-4l5.5-2Z" stroke="#8a90a3" strokeWidth="1.2" strokeLinejoin="round" /></svg>
-              Verified reward activity
+            <span className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px]">
+              {connectionState === "connected" ? "Live" : "Connecting"}
             </span>
-            {/* Divider — animates left -> right on the header's own entrance. */}
-            <motion.div
-              aria-hidden="true"
-              className="absolute bottom-0 left-0 h-px origin-left"
-              style={{ width: "100%", background: "linear-gradient(90deg, rgba(59,130,246,0.3), rgba(59,130,246,0.05))" }}
-              initial={{ scaleX: 0 }}
-              whileInView={{ scaleX: 1 }}
-              viewport={{ once: true }}
-              transition={LIVE_PAYOUTS_DIVIDER_TRANSITION}
-            />
-          </div>
-          <div className="hidden lg:flex items-center px-[20px] py-[10px] gap-[16px]" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-            {[
-              { kind: "person" as const, label: "Trader", w: "flex-1 min-w-[200px]" },
-              { kind: "dollar" as const, label: "Reward Amount", w: "flex-1 min-w-[140px]" },
-              { kind: "shield" as const, label: "Status", w: "flex-1 min-w-[140px]" },
-              { kind: "clock" as const, label: "Time", w: "w-[80px]" },
-            ].map((col, i) => (
-              <motion.div
-                key={col.label}
-                initial={{ opacity: 0, y: 6 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.35, delay: i * LIVE_PAYOUTS_COLUMN_LABEL_STAGGER_S, ease: [0.16, 1, 0.3, 1] }}
-                className={`${col.w} flex items-center gap-[6px]`}
-              >
-                <TableColIcon kind={col.kind} />
-                <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#8a90a3] text-[11px] tracking-[1px] uppercase">{col.label}</span>
-              </motion.div>
-            ))}
           </div>
           {records.length === 0 ? (
-            <div className="flex flex-col items-center gap-[10px] px-[20px] py-[56px] text-center">
+            <div className="flex flex-col items-center gap-[10px] px-[20px] py-[56px] text-center rounded-[28px]" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
               <span className="text-[32px]" aria-hidden="true">📭</span>
               <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[14px]">Waiting for certificates…</p>
             </div>
           ) : (
-            <AnimatePresence initial={false}>
-            {records.map((record, i) => {
-              const rowDelay = prefersReducedMotion ? 0 : i * LIVE_PAYOUTS_ROW_STAGGER_S;
-              return (
-              <motion.div
-                key={record.name + record.timestamp}
-                layout
-                initial={{ opacity: 0, y: -12 }}
-                animate={{ opacity: 1, y: 0 }}
-                whileHover={prefersReducedMotion ? undefined : livePayoutsRowHover}
-                transition={{ duration: LIVE_PAYOUTS_ROW_DURATION_S, delay: rowDelay, ease: [0.16, 1, 0.3, 1] }}
-                className="relative flex items-center flex-wrap lg:flex-nowrap gap-[12px] lg:gap-[16px] px-[20px] py-[18px]"
-                style={{ borderBottom: "1px solid rgba(0,0,0,0.035)" }}
-              >
-                <div className="flex-1 flex items-center gap-[10px] min-w-[200px]">
-                  <motion.span
-                    className="inline-flex rounded-full size-[8px] bg-[#22c55e] shrink-0"
-                    animate={prefersReducedMotion ? undefined : livePayoutsDotBreathe}
-                    transition={prefersReducedMotion ? undefined : { ...{ duration: LIVE_PAYOUTS_DOT_BREATHE_DURATION_S, repeat: Infinity, ease: "easeInOut" }, delay: rowDelay + LIVE_PAYOUTS_DOT_DELAY_S }}
-                  />
-                  <div className="flex items-center justify-center rounded-full size-[28px] shrink-0" style={{ background: "#eef0f6" }}>
-                    <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#1f2430] text-[11px]">{deriveInitials(record.name)}</span>
-                  </div>
-                  <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#1f2430] text-[14px]">{record.name}</p>
-                </div>
-                <div className="flex-1 min-w-[140px]">
-                  <AnimatedRewardAmount amount={record.amount} delaySeconds={rowDelay + LIVE_PAYOUTS_AMOUNT_DELAY_S} />
-                </div>
-                <div className="flex-1 flex items-center min-w-[140px]">
-                  <motion.span
-                    className="flex items-center gap-[4px] px-[8px] py-[3px] rounded-full"
-                    style={{ background: "rgba(59,130,246,0.1)" }}
-                    initial={prefersReducedMotion ? undefined : { opacity: 0 }}
-                    animate={
-                      prefersReducedMotion
-                        ? undefined
-                        : { opacity: [0, 1, ...livePayoutsBadgePulse.opacity] }
-                    }
-                    transition={
-                      prefersReducedMotion
-                        ? undefined
-                        : { duration: LIVE_PAYOUTS_BADGE_PULSE_DURATION_S, times: [0, 0.08, 0.08, 0.54, 1], repeat: Infinity, delay: rowDelay + LIVE_PAYOUTS_BADGE_DELAY_S, ease: "easeInOut" }
-                    }
-                  >
-                    <svg width="10" height="10" viewBox="0 0 14 14" fill="none"><path d="M11.6662 3.5L5.25017 9.9162L2.3338 6.99975" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" /></svg>
-                    <span className="font-['Inter:Medium',sans-serif] font-medium text-[#3b82f6] text-[11px]">Verified</span>
-                  </motion.span>
-                </div>
-                <motion.div
-                  className="w-full lg:w-[80px]"
-                  initial={prefersReducedMotion ? undefined : { opacity: 0 }}
-                  animate={prefersReducedMotion ? undefined : { opacity: 1 }}
-                  transition={{ duration: 0.3, delay: rowDelay + LIVE_PAYOUTS_BADGE_DELAY_S }}
-                >
-                  <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px]">{timeAgo(record.timestamp)}</p>
-                </motion.div>
-              </motion.div>
-              );
-            })}
-            </AnimatePresence>
+            <div className="flex flex-col gap-[20px]">
+              <AnimatePresence initial={false}>
+                {records.map((record, i) => (
+                  <RewardCard key={record.name + record.timestamp} record={record} index={i} prefersReducedMotion={prefersReducedMotion} />
+                ))}
+              </AnimatePresence>
+            </div>
           )}
-        </motion.div>
-        {/* Outer wrapper only adds a slight hover lift (y) — HeroCta's own
-            whileHover already handles scale (its shared, reused elsewhere,
-            so it isn't touched); the two compose on separate elements. Note:
-            this button's icon is a bookmark/ticket shape, not a directional
-            arrow, so the "arrow slides on hover" ask doesn't literally apply
-            here — sliding the label text instead would read as a design
-            change, so it's intentionally left out. */}
-        <motion.div whileHover={prefersReducedMotion ? undefined : { y: -2 }} transition={{ type: "spring", stiffness: 380, damping: 24 }}>
+        </div>
+
+        {/* CTA directly below the cards — full width on mobile, premium
+            glass-gradient pill, shimmer sweep every 5s on top of the slow
+            gradient drift, magnetic + lift + stronger glow on hover
+            (magneticStrength + whileHover both come from HeroCta itself,
+            shared/untouched; the wrapper here only adds a slight lift). */}
+        <motion.div className="w-full sm:w-auto" whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ type: "spring", stiffness: 380, damping: 24 }}>
           <HeroCta
             href="https://provesrc.com/verified/?src=fundingyourtrades"
             target="_blank"
             rel="noopener noreferrer"
             magneticStrength={0.16}
-            className="group relative flex items-center gap-[10px] px-[32px] py-[16px] rounded-[999px] shrink-0 no-underline overflow-hidden transition-shadow duration-300 hover:shadow-[0_12px_45px_-8px_rgba(59,130,246,0.55)]"
+            className="group relative flex items-center justify-center gap-[10px] px-[32px] py-[16px] rounded-[999px] shrink-0 no-underline overflow-hidden w-full sm:w-auto transition-shadow duration-300 hover:shadow-[0_16px_50px_-10px_rgba(59,130,246,0.6)]"
             style={PILL_CTA_GRADIENT_STYLE}
           >
             {!prefersReducedMotion && (
@@ -2312,6 +2357,16 @@ function LivePayouts() {
                 }}
                 animate={livePayoutsCtaGradientPosition}
                 transition={{ duration: LIVE_PAYOUTS_CTA_GRADIENT_DURATION_S, repeat: Infinity, ease: "linear" }}
+              />
+            )}
+            {!prefersReducedMotion && (
+              <motion.div
+                aria-hidden="true"
+                className="absolute inset-y-0 w-1/3 pointer-events-none"
+                style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.4), transparent)" }}
+                initial={{ x: LIVE_PAYOUTS_CTA_SHIMMER_INITIAL_X }}
+                animate={livePayoutsCtaShimmer}
+                transition={LIVE_PAYOUTS_CTA_SHIMMER_TRANSITION}
               />
             )}
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="relative"><path d="M3 8h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M2 5.5a1.5 1.5 0 0 1 1.5-1.5H10v4H3.5A1.5 1.5 0 0 1 2 6.5v-1Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M18 5.5A1.5 1.5 0 0 0 16.5 4H10v4h6.5A1.5 1.5 0 0 0 18 6.5v-1Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M10 4v14" stroke="#fff" strokeWidth="1.5" /></svg>

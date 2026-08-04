@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { LIVE_PAYOUTS_BACKEND } from "@/app/liveSiteContent";
+import { LIVE_PAYOUTS_DEV_ROTATION_INTERVAL_MS } from "@/app/livePayoutsMotion";
 
 export type LiveRewardRecord = {
   name: string;
@@ -95,6 +96,18 @@ function mockLiveRewards(): LiveRewardRecord[] {
   ];
 }
 
+// Extra fictional names cycled in one at a time, dev-only (see below) — lets
+// the "newest reward slides in, oldest fades out" entrance/exit motion
+// actually be observed while developing, since the real backend only ever
+// pushes on genuine reward events (unpredictable timing, and unreachable
+// from localhost anyway — see the Origin-restriction comment above).
+const MOCK_ROTATION_POOL: Omit<LiveRewardRecord, "timestamp">[] = [
+  { name: "Freya Lindqvist", amount: "$2,215.40" },
+  { name: "Marco Belliveau", amount: "$1,802.75" },
+  { name: "Aisha Rahman", amount: "$3,450.20" },
+  { name: "Jonas Weber", amount: "$1,590.60" },
+];
+
 export function useLiveRewardsFeed(): LiveRewardsFeedState {
   const [state, setState] = useState<LiveRewardsFeedState>(() =>
     import.meta.env.DEV
@@ -170,6 +183,22 @@ export function useLiveRewardsFeed(): LiveRewardsFeedState {
   const [, setTick] = useState(0);
   useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Dev-only: simulate a new reward arriving every ~9s, cycling through
+  // MOCK_ROTATION_POOL, so the entrance/exit animation is visible without
+  // waiting for a real (unreachable-from-localhost) socket event. No-op
+  // entirely in production builds — import.meta.env.DEV is statically
+  // false there, so this effect body never runs.
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    let i = 0;
+    const id = setInterval(() => {
+      const next = MOCK_ROTATION_POOL[i % MOCK_ROTATION_POOL.length];
+      i += 1;
+      setState((s) => applyLiveRewardsMessage(s, { type: "new_cert", cert: { ...next, timestamp: new Date().toISOString() } }));
+    }, LIVE_PAYOUTS_DEV_ROTATION_INTERVAL_MS);
     return () => clearInterval(id);
   }, []);
 

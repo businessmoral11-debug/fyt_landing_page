@@ -1108,7 +1108,11 @@ describe("Site-wide cleanup: 'profit'/'payout' wording replaced with reward-base
   it("Live Rewards section uses reward-based copy for the nav button, column header, and certificate labels", () => {
     const app = read("./App.tsx");
     expect(app).toContain('<p className="font-[\'Inter:Semi_Bold\',sans-serif] font-semibold text-[14px] text-white whitespace-nowrap">View Live Rewards</p>');
-    expect(app).toContain('{ kind: "dollar" as const, label: "Reward Amount", w: "flex-1 min-w-[140px]" },');
+    // The Recent Rewards table was later redesigned into a card feed (no
+    // more column-header row) — the reward-based-wording check now lives
+    // on the reward amount's accessible label instead of the old "Reward
+    // Amount" column header.
+    expect(app).toContain("aria-label={`Reward amount: ${amount}`}");
     expect(app).toContain('aria-label="Previous reward certificate"');
     expect(app).toContain('aria-label="Next reward certificate"');
     expect(app).toContain('aria-label="Reward certificates"');
