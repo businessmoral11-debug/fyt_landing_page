@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, type RootState } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
@@ -533,6 +533,23 @@ function Rig({ mouse }: { mouse: React.RefObject<{ x: number; y: number }> }) {
 // and mouse parallax. Rendered as a background layer behind the existing
 // orbital radar stage (HeroStage in App.tsx) — see HeroSceneGate for the
 // desktop/reduced-motion gating that decides whether this mounts at all.
+//
+// Suspense sits HERE, inside the Canvas, wrapped only around AsteroidField —
+// not around the whole scene, and not above the Canvas in HeroSceneGate.
+// AsteroidField is the only part of this scene that depends on any network
+// asset (useGLTF/useTexture); Starfield is pure procedural geometry with no
+// external files at all. Putting Suspense above the Canvas (the previous
+// setup) meant React held back the Canvas's own DOM node — the whole scene,
+// lighting included — until every GLTF/texture had finished loading, which
+// is what produced the "text appears, then the whole scene pops in a moment
+// later" delay. With the boundary here instead, the Canvas, lights,
+// starfield, and camera rig all mount and paint immediately and
+// unconditionally; only the asteroid meshes specifically wait on their own
+// assets, and since every one of those assets is preloaded at module-
+// evaluation time (see the useGLTF.preload/useTexture.preload calls above),
+// that wait is only ever the genuine, unavoidable network transfer time for
+// files already mid-flight since before the Hero even rendered — not
+// something this component's structure adds on top of it.
 export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
 
@@ -578,7 +595,9 @@ export default function HeroScene() {
       <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
 
       <MemoStarfield />
-      <AsteroidField />
+      <Suspense fallback={null}>
+        <AsteroidField />
+      </Suspense>
       <Rig mouse={mouse} />
     </Canvas>
   );

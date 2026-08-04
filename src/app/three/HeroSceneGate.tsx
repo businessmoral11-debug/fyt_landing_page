@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import HeroScene from "./HeroScene";
 
 // Statically imported (not React.lazy + dynamic import()) so the Hero scene's
@@ -6,13 +6,20 @@ import HeroScene from "./HeroScene";
 // calls — is evaluated as part of the main bundle immediately, instead of
 // behind a separate chunk request that only starts fetching assets after
 // that chunk itself has finished downloading. That JS-chunk-then-assets
-// serialization was the visible "asteroids/starfield pop in a moment later"
-// delay on refresh; bundling it eagerly and letting the asset preloads fire
-// at the earliest possible moment removes that serialization. The trade-off
-// is a larger main bundle (three.js/R3F/drei ship for every visitor, not
-// just ones who'll render the Canvas) — accepted here because this is a
-// desktop-only, above-the-fold hero element where perceived load speed
-// matters more than shaving the initial JS payload.
+// serialization was a source of the visible "asteroids/starfield pop in a
+// moment later" delay on refresh; bundling it eagerly and letting the asset
+// preloads fire at the earliest possible moment removes that serialization.
+// The trade-off is a larger main bundle (three.js/R3F/drei ship for every
+// visitor, not just ones who'll render the Canvas) — accepted here because
+// this is a desktop-only, above-the-fold hero element where perceived load
+// speed matters more than shaving the initial JS payload.
+//
+// No Suspense here anymore — HeroScene owns its own internal Suspense
+// boundary now, wrapped only around the asteroid meshes (see the comment on
+// HeroScene() in HeroScene.tsx). An outer boundary here would hold back the
+// Canvas's own DOM node — and therefore the starfield and lighting, which
+// have no asset dependency at all — until the asteroid assets finished
+// loading, which was the other half of the pop-in delay.
 //
 // The `canRender3D()` gate below still prevents the Canvas/WebGL context
 // itself from ever being constructed on mobile/coarse-pointer/reduced-motion
@@ -42,9 +49,5 @@ export function HeroSceneGate() {
   }, []);
 
   if (!enabled) return null;
-  return (
-    <Suspense fallback={null}>
-      <HeroScene />
-    </Suspense>
-  );
+  return <HeroScene />;
 }
