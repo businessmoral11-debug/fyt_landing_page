@@ -197,8 +197,10 @@ function AsteroidField() {
         rotation: [0.6, 2.1, -0.3],
         scale: 31.4,
         rotationSpeed: 0.0022,
-        floatAmplitudeY: 0.048,
-        floatPeriod: 21,
+        // Float amplitude/period retuned to the requested 6–10px / 10–16s
+        // window (~84 world-units-to-px at this depth): 0.08 ≈ 6.7px, 13s.
+        floatAmplitudeY: 0.08,
+        floatPeriod: 13,
         driftAmplitudeX: 0.018,
         driftPeriod: 29,
         phaseOffset: 0,
@@ -207,21 +209,28 @@ function AsteroidField() {
         displacementMap: rock5Displacement,
         displacementScale: 0.007,
       },
-      // Right: same rock2 model as before, only resized. Old apparent size
-      // (scale 16.2) ≈3.79 units; new scale (13.0) targets ≈3.03 units, a
-      // ~20% reduction — still larger than the new left (≈3.03 vs ≈2.37,
-      // ~28% bigger) but no longer dominant. Position/rotation unchanged;
-      // the smaller size only gives it more frame clearance, not less.
+      // Right: same rock2 model, same rotation/material/displacement —
+      // only resized (previous pass) and now moved up (this pass) so the
+      // two large rocks don't sit on the same horizontal line. +0.8 on Y
+      // (this scene's +Y is up — small-top-left sits at y=3.0, small-
+      // lower-left at y=-3.0 — so "move upward" means increasing Y here,
+      // not the negative delta a screen-space/image convention would
+      // suggest). At this new position + the already-reduced scale (13.0,
+      // apparent size ≈3.03 units ≈ radius 1.5), the rock's top edge sits
+      // well inside the visible frustum at this depth and its right edge
+      // has generous clearance from the viewport edge — no clipping.
       {
         key: "large-right",
         geometry: rock2HiMesh.geometry,
         material: rock2HiMesh.material,
-        position: [5.0, 0.3, -3.6],
+        position: [5.0, 1.1, -3.6],
         rotation: [0.3, -0.6, 0.15],
         scale: 13.0,
         rotationSpeed: 0.0024,
-        floatAmplitudeY: 0.048,
-        floatPeriod: 23,
+        // Float amplitude/period retuned to the requested 6–10px / 10–16s
+        // window: 0.095 ≈ 8px, 15s.
+        floatAmplitudeY: 0.095,
+        floatPeriod: 15,
         driftAmplitudeX: 0.018,
         driftPeriod: 26,
         phaseOffset: Math.PI,
@@ -240,7 +249,7 @@ function AsteroidField() {
         material: rock3Mesh.material,
         position: [-4.2, 3.0, -4.0],
         rotation: [0.6, 1.2, 0.3],
-        scale: 3.0,
+        scale: 3.51,
         rotationSpeed: 0.0048,
         floatAmplitudeY: 0.07,
         floatPeriod: 14,
@@ -256,7 +265,7 @@ function AsteroidField() {
         material: rock1LOD0.material,
         position: [4.6, 2.9, -4.3],
         rotation: [2.1, 0.4, 1.6],
-        scale: 2.6,
+        scale: 3.04,
         rotationSpeed: 0.0055,
         floatAmplitudeY: 0.08,
         floatPeriod: 16,
@@ -272,7 +281,7 @@ function AsteroidField() {
         material: rock2Mesh.material,
         position: [-2.3, -3.0, -4.6],
         rotation: [0.9, 3.0, 0.5],
-        scale: 2.1,
+        scale: 2.46,
         rotationSpeed: 0.0052,
         floatAmplitudeY: 0.065,
         floatPeriod: 12.5,
@@ -288,7 +297,7 @@ function AsteroidField() {
         material: rock1LOD0.material,
         position: [2.6, -3.1, -4.8],
         rotation: [1.7, 2.0, 2.4],
-        scale: 1.8,
+        scale: 2.11,
         rotationSpeed: 0.006,
         floatAmplitudeY: 0.085,
         floatPeriod: 15.5,
