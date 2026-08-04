@@ -1795,7 +1795,7 @@ function ProofInNumbers() {
                         aria-hidden="true"
                         className="absolute inset-y-0 w-1/3 pointer-events-none"
                         style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.35), transparent)" }}
-                        initial={{ x: "-120%" }}
+                        initial={{ x: "-115%" }}
                         animate={proofButtonSweep}
                         transition={PROOF_BUTTON_SWEEP_TRANSITION}
                       />
@@ -3786,7 +3786,7 @@ function ProductShowcase() {
                       aria-hidden="true"
                       className="absolute inset-y-0 w-1/4 pointer-events-none"
                       style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.5), transparent)" }}
-                      initial={{ x: "-140%" }}
+                      initial={{ x: "-120%" }}
                       animate={productReflectionSweep}
                       transition={PRODUCT_REFLECTION_SWEEP_TRANSITION}
                     />
@@ -3892,7 +3892,7 @@ function ProductShowcase() {
                     aria-hidden="true"
                     className="absolute inset-y-0 w-1/3 pointer-events-none"
                     style={{ background: "linear-gradient(115deg, transparent, rgba(59,130,246,0.12), transparent)" }}
-                    initial={{ x: "-130%" }}
+                    initial={{ x: "-115%" }}
                     animate={productChatButtonSheen}
                     transition={{ duration: PRODUCT_CHAT_BUTTON_SHEEN_DURATION_S, repeat: Infinity, ease: "linear" }}
                   />

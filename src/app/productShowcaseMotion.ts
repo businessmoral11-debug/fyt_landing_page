@@ -89,7 +89,14 @@ export const PRODUCT_REFLECTION_SWEEP_TRANSITION: Transition = {
   repeatDelay: PRODUCT_REFLECTION_SWEEP_REPEAT_DELAY_S,
   ease: "easeInOut",
 };
-export const productReflectionSweep = { x: ["-130%", "230%"] } as const;
+// `x` percentages are relative to the SWEEP BAR's own width, not its
+// container's — the bar is `w-1/4` (25% of the dashboard image), so fully
+// clearing the image on both sides requires roughly -100% (bar's right edge
+// at the container's left edge) to +400% (bar's left edge at the
+// container's right edge), not the same -130%/230% range that (mostly)
+// works for a much narrower element relative to its own container. Margins
+// added on both ends so it's genuinely gone at rest, not just at the edge.
+export const productReflectionSweep = { x: ["-120%", "420%"] } as const;
 
 // Ambient blue glow behind the dashboard — breathing, subtle.
 export const PRODUCT_AMBIENT_GLOW_DURATION_S = 12;
@@ -148,4 +155,6 @@ export const productOnlineDotPulse = { scale: [1, 1.3, 1], opacity: [1, 0.6, 1] 
 // continuously underneath the label/arrow, not a change to the button's own
 // background color.
 export const PRODUCT_CHAT_BUTTON_SHEEN_DURATION_S = 7;
-export const productChatButtonSheen = { x: ["-130%", "230%"] } as const;
+// Bar is `w-1/3` here — see productReflectionSweep above for why the
+// percentages must scale with the bar's own width fraction.
+export const productChatButtonSheen = { x: ["-115%", "315%"] } as const;

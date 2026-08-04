@@ -186,7 +186,14 @@ export const PROOF_BUTTON_SWEEP_TRANSITION: Transition = {
   repeatDelay: PROOF_BUTTON_SWEEP_REPEAT_DELAY_S,
   ease: "easeInOut",
 };
-export const proofButtonSweep = { x: ["-120%", "220%"] } as const;
+// `x` percentages are relative to the sweep bar's own width, not its
+// container's — the bar is `w-1/3` of the button, so fully clearing the
+// button on both sides needs roughly -100% (bar's right edge at the
+// button's left edge) to +300% (bar's left edge at the button's right
+// edge); the previous -120%/220% range undershot the right side, leaving
+// the sweep visibly parked mid-button during its repeatDelay pause instead
+// of fully hidden.
+export const proofButtonSweep = { x: ["-115%", "315%"] } as const;
 
 // ─── Faint hub-and-spoke data-connection lines between the 4 stat cards ────
 // (unchanged from the prior pass — a different, always-faintly-visible
