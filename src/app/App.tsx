@@ -904,7 +904,12 @@ function Hero() {
         >
           {/* Design spec capitalizes "Without" — HERO_CONTENT.headlineMain (live-site manifest, lowercase "without") is correct as a record of the live site but not used for this specific render */}
           <span className="block text-white"><RevealWords text="Trade Without Hidden Rules." /></span>
-          <span className="block text-[#60a5fa]" style={{ textShadow: "0 0 42px rgba(96,165,250,0.5)" }}><RevealWords text={HERO_CONTENT.headlineBlue} /></span>
+          {/* Faint text-shadow glow only — no background/gradient rectangle,
+              no backdrop-blur, no pseudo-element highlight layer. Opacity
+              kept under 10% so this reads as a subtle glow, not a highlight
+              box (a heavier blur/opacity here was what made this look like
+              a solid highlighted rectangle behind the text). */}
+          <span className="block text-[#60a5fa]" style={{ textShadow: "0 0 28px rgba(96,165,250,0.08)" }}><RevealWords text={HERO_CONTENT.headlineBlue} /></span>
         </h1>
         <div className="h-[16px] lg:h-[32px] shrink-0" />
         <motion.p

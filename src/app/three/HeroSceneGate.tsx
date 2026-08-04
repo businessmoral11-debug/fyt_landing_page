@@ -1,11 +1,23 @@
-import { Suspense, lazy, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import HeroScene from "./HeroScene";
 
-const HeroScene = lazy(() => import("./HeroScene"));
-
-// Gate, not just visual hiding: on mobile/coarse-pointer/reduced-motion this
-// never imports three.js or constructs a WebGL context at all — "replace
-// heavy 3D scenes with lightweight alternatives on mobile" from the redesign
-// brief. The existing SVG orbital stage (HeroStage in App.tsx) always renders
+// Statically imported (not React.lazy + dynamic import()) so the Hero scene's
+// module — including its module-scope useGLTF.preload()/useTexture.preload()
+// calls — is evaluated as part of the main bundle immediately, instead of
+// behind a separate chunk request that only starts fetching assets after
+// that chunk itself has finished downloading. That JS-chunk-then-assets
+// serialization was the visible "asteroids/starfield pop in a moment later"
+// delay on refresh; bundling it eagerly and letting the asset preloads fire
+// at the earliest possible moment removes that serialization. The trade-off
+// is a larger main bundle (three.js/R3F/drei ship for every visitor, not
+// just ones who'll render the Canvas) — accepted here because this is a
+// desktop-only, above-the-fold hero element where perceived load speed
+// matters more than shaving the initial JS payload.
+//
+// The `canRender3D()` gate below still prevents the Canvas/WebGL context
+// itself from ever being constructed on mobile/coarse-pointer/reduced-motion
+// — only the JS module and its asset preloads are no longer conditional.
+// The existing SVG orbital stage (HeroStage in App.tsx) always renders
 // underneath regardless, so there is no blank gap when this opts out.
 function canRender3D(): boolean {
   return (

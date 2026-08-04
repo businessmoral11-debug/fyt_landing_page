@@ -37,6 +37,12 @@ useGLTF.preload(ASTEROID_MODEL_URLS.rock2);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock5Hi);
+// The two displacement maps were being fetched lazily on first render inside
+// AsteroidField's useTexture() calls — preloaded here too so every asset
+// (models + textures) starts downloading at module-evaluation time, not
+// staggered behind component mount.
+useTexture.preload(ROCK2_DISPLACEMENT_URL);
+useTexture.preload(ROCK5_DISPLACEMENT_URL);
 
 interface AsteroidSpec {
   key: string;
