@@ -73,109 +73,40 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
   return <mesh ref={ref} geometry={spec.geometry} material={material} scale={spec.scale} castShadow receiveShadow />;
 }
 
-// Numerous tiny/distant fragments, real GPU instancing (one draw call per
-// group) — the tier where instancing actually earns its keep, versus the
-// handful of large/medium rocks a viewer can actually study, which stay as
-// individually-placed unique meshes.
-function FragmentInstances({
-  geometry, material, count, spread, depthNear, depthFar, baseScale,
-}: {
-  geometry: THREE.BufferGeometry; material: THREE.Material; count: number; spread: number; depthNear: number; depthFar: number; baseScale: number;
-}) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const clonedMaterial = useMemo(() => material.clone(), [material]);
-  useEffect(() => () => clonedMaterial.dispose(), [clonedMaterial]);
-
-  const instances = useMemo(() => {
-    const out: { position: THREE.Vector3; axis: THREE.Vector3; speed: number; scale: number }[] = [];
-    for (let i = 0; i < count; i++) {
-      out.push({
-        position: new THREE.Vector3(
-          (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread * 0.5,
-          -depthNear - Math.random() * (depthFar - depthNear),
-        ),
-        axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
-        speed: 0.01 + Math.random() * 0.018,
-        scale: baseScale * (0.55 + Math.random() * 0.85),
-      });
-    }
-    return out;
-  }, [count, spread, depthNear, depthFar, baseScale]);
-
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const rotations = useRef(instances.map(() => new THREE.Euler()));
-
-  useFrame((_, delta) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    instances.forEach((inst, i) => {
-      const rot = rotations.current[i];
-      rot.x += inst.axis.x * inst.speed * delta;
-      rot.y += inst.axis.y * inst.speed * delta;
-      rot.z += inst.axis.z * inst.speed * delta;
-      dummy.position.copy(inst.position);
-      dummy.rotation.copy(rot);
-      dummy.scale.setScalar(inst.scale);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-  });
-
-  return <instancedMesh ref={meshRef} args={[geometry, clonedMaterial, instances.length]} />;
-}
-
-// Assembles the whole field: 3 large + 6 medium individually-placed real
-// asteroids (each its own draw call, each castShadow/receiveShadow), plus
-// 18 tiny distant fragments as 3 instanced groups of 6 (one per rock
-// variant, reusing that variant's lowest-detail LOD where available).
+// Just 3 asteroids total now — no medium tier, no instanced distant
+// fragments — each pushed out toward a screen edge/corner so none of them
+// sit behind the Hero's centered headline band. rock1 uses its LOD1 node
+// (2824 verts) rather than LOD0 (5384 verts): fewer facets reads as a
+// rounder, smoother boulder instead of a sharply jagged rock, while still
+// being the real scanned mesh, just a coarser baked-in level of detail —
+// not a distortion of it.
 function AsteroidField() {
   const rock1 = useGLTF(ASTEROID_MODEL_URLS.rock1);
   const rock2 = useGLTF(ASTEROID_MODEL_URLS.rock2);
   const rock3 = useGLTF(ASTEROID_MODEL_URLS.rock3);
 
   const rock1LOD0 = rock1.nodes["moon_rock_01_LOD0"] as THREE.Mesh;
-  const rock1LOD2 = (rock1.nodes["moon_rock_01_LOD2"] as THREE.Mesh) ?? rock1LOD0;
+  const rock1Round = (rock1.nodes["moon_rock_01_LOD1"] as THREE.Mesh) ?? rock1LOD0;
   const rock2Mesh = rock2.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
   const rock3Mesh = rock3.nodes["moon_rock_03_LOD0"] as THREE.Mesh;
 
   const largeSpecs = useMemo<AsteroidSpec[]>(
     () => [
-      { key: "L1", geometry: rock1LOD0.geometry, material: rock1LOD0.material, position: [2.7, 0.35, -3.4], scale: 9.5, rotationSpeed: 0.013, driftRadius: 0.05, driftSpeed: 0.019, colorTint: 1, roughnessJitter: 0 },
-      { key: "L2", geometry: rock2Mesh.geometry, material: rock2Mesh.material, position: [-2.9, -0.55, -4.1], scale: 11.5, rotationSpeed: 0.01, driftRadius: 0.055, driftSpeed: 0.016, colorTint: 0.94, roughnessJitter: 0.03 },
-      { key: "L3", geometry: rock3Mesh.geometry, material: rock3Mesh.material, position: [0.4, 1.3, -5.2], scale: 8.8, rotationSpeed: 0.015, driftRadius: 0.045, driftSpeed: 0.022, colorTint: 1.05, roughnessJitter: -0.02 },
+      // Far left, lower third — clear of the centered headline.
+      { key: "L1", geometry: rock1Round.geometry, material: rock1Round.material, position: [-5.6, -1.9, -3.2], scale: 11.5, rotationSpeed: 0.012, driftRadius: 0.05, driftSpeed: 0.018, colorTint: 1, roughnessJitter: 0 },
+      // Far right, upper corner — above/beside the headline band.
+      { key: "L2", geometry: rock2Mesh.geometry, material: rock2Mesh.material, position: [5.7, 1.9, -3.8], scale: 14, rotationSpeed: 0.009, driftRadius: 0.055, driftSpeed: 0.015, colorTint: 0.94, roughnessJitter: 0.03 },
+      // Far right, lower third — spread apart from L2 so they don't cluster.
+      { key: "L3", geometry: rock3Mesh.geometry, material: rock3Mesh.material, position: [4.7, -2.4, -4.4], scale: 10.5, rotationSpeed: 0.014, driftRadius: 0.045, driftSpeed: 0.021, colorTint: 1.05, roughnessJitter: -0.02 },
     ],
-    [rock1LOD0, rock2Mesh, rock3Mesh],
+    [rock1Round, rock2Mesh, rock3Mesh],
   );
-
-  const mediumSpecs = useMemo<AsteroidSpec[]>(() => {
-    const sources = [rock1LOD0, rock2Mesh, rock3Mesh, rock1LOD0, rock2Mesh, rock3Mesh];
-    return sources.map((src, i) => ({
-      key: `M${i}`,
-      geometry: src.geometry,
-      material: src.material,
-      position: [(Math.random() - 0.5) * 9, (Math.random() - 0.5) * 5, -6.5 - Math.random() * 4] as [number, number, number],
-      scale: 2.6 + Math.random() * 2.6,
-      rotationSpeed: 0.012 + Math.random() * 0.02,
-      driftRadius: 0.04 + Math.random() * 0.06,
-      driftSpeed: 0.012 + Math.random() * 0.014,
-      roughnessJitter: (Math.random() - 0.5) * 0.08,
-      colorTint: 0.9 + Math.random() * 0.22,
-    }));
-  }, [rock1LOD0, rock2Mesh, rock3Mesh]);
 
   return (
     <>
       {largeSpecs.map((spec) => (
         <Asteroid key={spec.key} spec={spec} />
       ))}
-      {mediumSpecs.map((spec) => (
-        <Asteroid key={spec.key} spec={spec} />
-      ))}
-      <FragmentInstances geometry={rock1LOD2.geometry} material={rock1LOD0.material} count={6} spread={13} depthNear={9} depthFar={17} baseScale={0.7} />
-      <FragmentInstances geometry={rock2Mesh.geometry} material={rock2Mesh.material} count={6} spread={14} depthNear={10} depthFar={19} baseScale={0.55} />
-      <FragmentInstances geometry={rock3Mesh.geometry} material={rock3Mesh.material} count={6} spread={12} depthNear={11} depthFar={18} baseScale={0.6} />
     </>
   );
 }
