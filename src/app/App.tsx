@@ -1121,64 +1121,18 @@ const PROVE_SKILL_CARDS = [
   { id: "delayed-rewards", text: "Delayed rewards damage trust." },
 ] as const;
 
-// The "problems → solution" payoff: once the pinned scroll reaches the
-// existing post-reveal hold (scrollYProgress 0.85-1, already reserved as a
-// pause at full visibility — see PROVE_SKILL_CARD_REVEALS's last entry in
-// proveSkillReveal.ts), the core panel morphs from the problem statement
-// into this list instead of introducing new scroll distance/timing data.
-const PROVE_SKILL_SOLUTIONS = ["Transparent Rules", "No Consistency Rule", "Static Drawdown", "Fast Rewards", "Up To 100% Reward Split"] as const;
-
-// Replaces the old orange warning-triangle glyph — a small rotating arc plus
-// a pulsing core, read as a "system status" light rather than an alert icon.
-// Purely decorative (aria-hidden); GPU-only (rotate/opacity/scale).
+// Replaces the old orange warning-triangle glyph with a small static dot and
+// a gentle pulsing glow — deliberately minimal (no ring, no rotation) so it
+// reads as a quiet accent rather than a "system status" graphic.
 function StatusIndicator() {
   const reduceMotion = useReducedMotion();
   return (
-    <div className="relative shrink-0 flex items-center justify-center" style={{ width: 20, height: 20 }} aria-hidden="true">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="absolute inset-0">
-        <circle cx="10" cy="10" r="8" stroke="rgba(59,130,246,0.15)" strokeWidth="1" />
-      </svg>
-      <motion.svg
-        width="20"
-        height="20"
-        viewBox="0 0 20 20"
-        fill="none"
-        className="absolute inset-0"
-        animate={reduceMotion ? undefined : { rotate: 360 }}
-        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-      >
-        <defs>
-          <linearGradient id="prove-skill-status-ring" x1="0" y1="0" x2="20" y2="20">
-            <stop offset="0%" stopColor="#3b82f6" />
-            <stop offset="100%" stopColor="#93c5fd" stopOpacity="0.15" />
-          </linearGradient>
-        </defs>
-        <circle cx="10" cy="10" r="8" stroke="url(#prove-skill-status-ring)" strokeWidth="1.3" strokeDasharray="13 37" strokeLinecap="round" />
-      </motion.svg>
-      <motion.div
-        className="rounded-full"
-        style={{ width: 6, height: 6, background: "#3b82f6", boxShadow: "0 0 6px rgba(59,130,246,0.7)" }}
-        animate={reduceMotion ? undefined : { opacity: [0.55, 1, 0.55], scale: [0.9, 1.15, 0.9] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-      />
-    </div>
-  );
-}
-
-// A soft light sweep that crosses a card every few seconds — a restrained
-// "alive" cue rather than a constant shimmer. Skipped entirely under
-// reduced motion.
-function CardSweep() {
-  const reduceMotion = useReducedMotion();
-  if (reduceMotion) return null;
-  return (
     <motion.div
       aria-hidden="true"
-      className="absolute inset-y-0 w-1/2 pointer-events-none"
-      style={{ background: "linear-gradient(100deg, transparent 0%, rgba(59,130,246,0.1) 50%, transparent 100%)" }}
-      initial={{ x: "-160%" }}
-      animate={{ x: "260%" }}
-      transition={{ duration: 2.4, repeat: Infinity, repeatDelay: 4.2, ease: "easeInOut" }}
+      className="rounded-full shrink-0"
+      style={{ width: 7, height: 7, background: "#3b82f6", boxShadow: "0 0 8px rgba(59,130,246,0.6)" }}
+      animate={reduceMotion ? undefined : { opacity: [0.6, 1, 0.6] }}
+      transition={{ duration: 2.6, repeat: Infinity, ease: "easeInOut" }}
     />
   );
 }
@@ -1215,9 +1169,8 @@ function ProveSkillCard({ text, floatDelay = 0 }: { text: string; floatDelay?: n
           boxShadow: "0 14px 34px -16px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.7)",
         }}
       >
-        {/* Soft blue edge light along the top border, plus the periodic sweep. */}
+        {/* Soft blue edge light along the top border. */}
         <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.55), transparent)" }} />
-        <CardSweep />
         <StatusIndicator />
         <p className="relative font-['Inter:Regular',sans-serif] font-normal text-[#1f2430] text-[14px] leading-[1.4]">{text}</p>
       </div>
@@ -1255,19 +1208,6 @@ function ProveSkillRevealCard({
   );
 }
 
-function LightStreak({ className, width = 140, duration = 14, delay = 0 }: { className: string; width?: number; duration?: number; delay?: number }) {
-  const reduceMotion = useReducedMotion();
-  if (reduceMotion) return null;
-  return (
-    <motion.div
-      aria-hidden="true"
-      className={`absolute h-px pointer-events-none ${className}`}
-      style={{ width, background: "linear-gradient(90deg, transparent, rgba(96,165,250,0.55), transparent)", filter: "blur(1px)" }}
-      animate={{ opacity: [0, 0.8, 0], x: [0, 36, 0] }}
-      transition={{ duration, repeat: Infinity, ease: "easeInOut", delay }}
-    />
-  );
-}
 
 // Word-by-word reveal that also un-blurs as it rises — "split text reveal,
 // blur -> sharp" from the section brief. Triggers once as the pinned panel
@@ -1309,122 +1249,31 @@ function BlurRevealWords({ text }: { text: string }) {
 // (see ProveYourSkill below) rather than inside it, precisely so this stays
 // small enough to never risk overlapping the top/mid card rows.
 function ProveSkillHeading({ size }: { size: string }) {
-  const reduceMotion = useReducedMotion();
   return (
-    <div
-      className="relative flex flex-col items-center gap-[12px] rounded-[20px] px-[22px] py-[20px] lg:px-[32px] lg:py-[24px] overflow-hidden"
-      style={{
-        background: "rgba(255,255,255,0.62)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        border: "1px solid rgba(59,130,246,0.16)",
-        boxShadow: "0 24px 60px -24px rgba(15,23,42,0.28)",
-      }}
-    >
-      {/* Glass reflection sheen, matching the pricing panels' treatment. */}
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-[50px] pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0) 100%)" }} />
-      <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px pointer-events-none" style={{ background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)" }} />
-
-      {/* Central node — the same status-light language as the cards, scaled
-          up, marking this panel as the network's "core". */}
-      <div className="relative flex items-center justify-center" style={{ width: 30, height: 30 }} aria-hidden="true">
-        <svg width="30" height="30" viewBox="0 0 30 30" fill="none" className="absolute inset-0">
-          <circle cx="15" cy="15" r="12.5" stroke="rgba(59,130,246,0.18)" strokeWidth="1.1" />
-        </svg>
-        <motion.svg
-          width="30"
-          height="30"
-          viewBox="0 0 30 30"
-          fill="none"
-          className="absolute inset-0"
-          animate={reduceMotion ? undefined : { rotate: 360 }}
-          transition={{ duration: 9, repeat: Infinity, ease: "linear" }}
-        >
-          <circle cx="15" cy="15" r="12.5" stroke="#3b82f6" strokeWidth="1.3" strokeDasharray="13 65" strokeLinecap="round" />
-        </motion.svg>
-        <motion.div
-          className="rounded-full"
-          style={{ width: 8, height: 8, background: "#3b82f6", boxShadow: "0 0 12px rgba(59,130,246,0.75)" }}
-          animate={reduceMotion ? undefined : { opacity: [0.6, 1, 0.6], scale: [0.92, 1.1, 0.92] }}
-          transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-        />
-      </div>
-
-      <div className="flex flex-col items-center text-center">
-        <h2 className={`font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] ${size} leading-[1.15] tracking-[-0.02em]`}>
-          <BlurRevealWords text="Prove Your Trading Skill." />
-        </h2>
-        <p className={`font-['DM_Sans',sans-serif] font-medium ${size} leading-[1.15] tracking-[-0.02em]`}>
-          <span className="text-[#0b0c11]"><BlurRevealWords text="Not Your Ability To Survive" /></span>
-          <br />
-          <span className="text-[#3b82f6]" style={{ textShadow: "0 0 30px rgba(59,130,246,0.3)" }}><BlurRevealWords text="Unfair Rules." /></span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-// One line per desktop card, converging on the core panel — drawn in sync
-// with that card's own reveal window (same PROVE_SKILL_CARD_REVEALS timing
-// the card itself uses), so the "network" cabling animates in lockstep with
-// the node it connects to rather than on separate, uncoordinated timing.
-const PROVE_SKILL_LINE_ANCHORS: readonly [number, number][] = [
-  [13, 15], // card 0 — top-left
-  [87, 15], // card 1 — top-right
-  [23, 60], // card 2 — mid-left
-  [77, 60], // card 3 — mid-right
-  [50, 84], // card 4 — bottom-center
-];
-const PROVE_SKILL_CORE_ANCHOR: [number, number] = [50, 34];
-
-function ProveSkillConnectorLine({
-  anchor, progress, reveal, reduceMotion,
-}: {
-  anchor: [number, number]; progress: MotionValue<number>; reveal: CardReveal; reduceMotion: boolean | null;
-}) {
-  const drawn = useTransform(progress, [reveal.fadeStart, reveal.fadeEnd], [0, 1]);
-  const dotOpacity = useTransform(progress, [reveal.fadeEnd, Math.min(1, reveal.fadeEnd + 0.08)], [0, 1]);
-  const [x1, y1] = anchor;
-  const [x2, y2] = PROVE_SKILL_CORE_ANCHOR;
-  return (
-    <>
-      <motion.line
-        x1={x1}
-        y1={y1}
-        x2={x2}
-        y2={y2}
-        stroke="url(#prove-skill-line-gradient)"
-        strokeWidth={0.22}
-        strokeLinecap="round"
-        style={reduceMotion ? undefined : { pathLength: drawn }}
-        opacity={reduceMotion ? 0.5 : undefined}
+    <div className="relative flex flex-col items-center">
+      {/* A single soft radial glow behind the text creates focus without a
+          card, border, or blur box around the headline. */}
+      <div
+        aria-hidden="true"
+        className="absolute pointer-events-none"
+        style={{
+          width: 640,
+          height: 420,
+          left: "50%",
+          top: "50%",
+          transform: "translate(-50%, -50%)",
+          background: "radial-gradient(closest-side, rgba(59,130,246,0.16), rgba(59,130,246,0.05) 55%, transparent 80%)",
+          filter: "blur(30px)",
+        }}
       />
-      {/* Marks each line's arrival at the core once it finishes drawing — the
-          "tiny particles travel through the lines toward the center" cue,
-          simplified to a soft pulse-on-arrival rather than continuous
-          per-frame position interpolation along the path. */}
-      {!reduceMotion && (
-        <motion.circle cx={x2} cy={y2} r={0.9} fill="#60a5fa" style={{ opacity: dotOpacity }} />
-      )}
-    </>
-  );
-}
-
-function ProveSkillNetworkLines({ progress, reduceMotion }: { progress: MotionValue<number>; reduceMotion: boolean | null }) {
-  return (
-    <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-      <defs>
-        <linearGradient id="prove-skill-line-gradient" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="#93c5fd" stopOpacity="0.5" />
-          <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.65" />
-        </linearGradient>
-      </defs>
-      <ProveSkillConnectorLine anchor={PROVE_SKILL_LINE_ANCHORS[0]} progress={progress} reveal={PROVE_SKILL_CARD_REVEALS[0]} reduceMotion={reduceMotion} />
-      <ProveSkillConnectorLine anchor={PROVE_SKILL_LINE_ANCHORS[1]} progress={progress} reveal={PROVE_SKILL_CARD_REVEALS[1]} reduceMotion={reduceMotion} />
-      <ProveSkillConnectorLine anchor={PROVE_SKILL_LINE_ANCHORS[2]} progress={progress} reveal={PROVE_SKILL_CARD_REVEALS[2]} reduceMotion={reduceMotion} />
-      <ProveSkillConnectorLine anchor={PROVE_SKILL_LINE_ANCHORS[3]} progress={progress} reveal={PROVE_SKILL_CARD_REVEALS[3]} reduceMotion={reduceMotion} />
-      <ProveSkillConnectorLine anchor={PROVE_SKILL_LINE_ANCHORS[4]} progress={progress} reveal={PROVE_SKILL_CARD_REVEALS[4]} reduceMotion={reduceMotion} />
-    </svg>
+      <h2 className={`relative font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] ${size} leading-[1.3] tracking-[-0.01em]`}>
+        <BlurRevealWords text="Prove Your Trading Skill." />
+      </h2>
+      <p className={`relative font-['DM_Sans',sans-serif] font-medium ${size} leading-[1.3] tracking-[-0.01em] mt-[6px]`}>
+        <span className="text-[#0b0c11]"><BlurRevealWords text="Not your ability to survive" /></span>{" "}
+        <span className="text-[#3b82f6]"><BlurRevealWords text="unfair rules." /></span>
+      </p>
+    </div>
   );
 }
 
@@ -1438,120 +1287,59 @@ function ProveYourSkill() {
   const { scrollYProgress: mobileScrollYProgress } = useScroll({ target: mobileScrollRef, offset: ["start start", "end end"] });
   const mobileRevealProgress = useMonotonicProgress(mobileScrollYProgress);
 
-  // "Premium transition": scrollYProgress 0.85-1 was already reserved as a
-  // hold at full visibility after the last card's own fadeEnd (see
-  // proveSkillReveal.ts) — reused here, rather than adding new scroll
-  // distance, as the window where the cards recede and the core panel
-  // morphs from the problem statement into the solution list.
-  const cardsRecede = useTransform(revealProgress, [0.85, 1], [1, 0.3]);
-  const coreOpacity = useTransform(revealProgress, [0.85, 0.96], [1, 0]);
-  const solutionOpacity = useTransform(revealProgress, [0.86, 1], [0, 1]);
-
   return (
     <div className="bg-white relative shrink-0 w-full">
-      {/* Decorative only — a separate absolutely-positioned sibling, not an
+      {/* Decorative only - a separate absolutely-positioned sibling, not an
           ancestor, of the pinned scroll wrappers below. An `overflow-hidden`
           ancestor of a `position: sticky` element is a classic way to
           silently break the stickiness, so this layer stays out of that
-          tree entirely rather than wrapping the section root. */}
+          tree entirely rather than wrapping the section root. Deliberately
+          minimal: just two very soft glows - whitespace, not decoration, is
+          the actual background here. */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <AmbientBlob className="left-[8%] top-[20%]" color="rgba(59,130,246,0.08)" size={520} duration={24} />
-        <AmbientBlob className="right-[6%] bottom-[10%]" color="rgba(96,165,250,0.06)" size={420} duration={19} />
-        {/* Faint dot grid — reads as "engineered/technical" rather than a
-            flat white void, without competing with the cards or core. */}
-        <div className="absolute inset-0 opacity-60" style={{ backgroundImage: "radial-gradient(circle, rgba(59,130,246,0.06) 1px, transparent 1px)", backgroundSize: "34px 34px" }} />
-        <LightStreak className="left-[20%] top-[22%] w-[160px]" duration={13} />
-        <LightStreak className="right-[18%] top-[68%] w-[130px]" duration={17} delay={4} />
-        <LightStreak className="left-[48%] top-[10%] w-[90px]" duration={15} delay={7} />
+        <AmbientBlob className="left-[8%] top-[20%]" color="rgba(59,130,246,0.06)" size={520} duration={24} />
+        <AmbientBlob className="right-[6%] bottom-[10%]" color="rgba(96,165,250,0.05)" size={420} duration={19} />
       </div>
       <div className="relative flex flex-col gap-[40px] lg:gap-[0px] items-center px-[20px] py-[64px] lg:px-[80px] lg:py-[120px] w-full max-w-[1280px] mx-auto">
         {/* Desktop: pinned scroll-reveal, modeled on sadewa.framer.website's
-            "Eliminate the bottlenecks" section — see proveSkillReveal.ts for
+            "Eliminate the bottlenecks" section - see proveSkillReveal.ts for
             the timing/derivation notes. The wrapper below is tall
             (PROVE_SKILL_SCROLL_HEIGHT_VH) purely to give scroll distance for
             the reveal to play out against; its sticky inner child (h-screen +
             justify-center, so the content sits vertically centered in the
-            viewport rather than flush at the top — reduces the empty scroll
+            viewport rather than flush at the top - reduces the empty scroll
             space below it that a plain `sticky top-0` left) pins in place
             while that distance scrolls past, then releases into normal flow
             once the wrapper ends. The heading and every card's final
-            position/styling are unchanged relative to each other — only how
+            position/styling are unchanged relative to each other - only how
             they arrive (and where the pinned block sits within the viewport
             during the scroll) is different from the static version. */}
         <div ref={scrollRef} className="hidden lg:block relative w-full" style={{ height: `${PROVE_SKILL_SCROLL_HEIGHT_VH}vh` }}>
           <div className="sticky top-0 h-screen flex flex-col items-center justify-center gap-0">
-            {/* 900px, up from the first pass's 640px — the extra height is
-                pure breathing room between the two card rows and the core,
-                not new content. Card positions (8% / 56% / 78%) are
-                percentage-based and thus unaffected by this; only the
-                absolute pixel gap between them grows. */}
+            {/* 900px tall purely for breathing room between the card rows
+                and the headline - card positions (8% / 56% / 78%) are
+                percentage-based and unaffected; only the absolute pixel gap
+                between them grows. No lines, no boxes, no network graphic -
+                just generous, even spacing around a centered headline. */}
             <div className="relative w-full" style={{ height: "900px" }}>
-              <ProveSkillNetworkLines progress={revealProgress} reduceMotion={reduceMotion} />
-              <div className="absolute left-1/2 -translate-x-1/2 top-[21%] text-center w-[440px]">
-                <motion.div style={reduceMotion ? undefined : { opacity: coreOpacity }}>
-                  <ProveSkillHeading size="text-[34px] xl:text-[42px]" />
-                </motion.div>
-                {/* Solution panel — same position/size as the core above,
-                    stacked via absolute positioning so the two crossfade in
-                    place instead of one displacing the other. */}
-                <motion.div
-                  className="absolute inset-0"
-                  style={reduceMotion ? { opacity: 0 } : { opacity: solutionOpacity }}
-                  aria-hidden={reduceMotion ? true : undefined}
-                >
-                  <div
-                    className="relative flex flex-col items-center gap-[10px] rounded-[20px] px-[22px] py-[24px] lg:px-[32px] lg:py-[28px] overflow-hidden h-full justify-center"
-                    style={{
-                      background: "rgba(255,255,255,0.62)",
-                      backdropFilter: "blur(20px)",
-                      WebkitBackdropFilter: "blur(20px)",
-                      border: "1px solid rgba(59,130,246,0.18)",
-                      boxShadow: "0 24px 60px -24px rgba(15,23,42,0.28)",
-                    }}
-                  >
-                    <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px pointer-events-none" style={{ background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.5), transparent)" }} />
-                    <ul className="flex flex-col gap-[8px] items-center">
-                      {PROVE_SKILL_SOLUTIONS.map((label) => (
-                        <li key={label} className="flex items-center gap-[8px]">
-                          <span className="rounded-full shrink-0" style={{ width: 5, height: 5, background: "#3b82f6", boxShadow: "0 0 8px rgba(59,130,246,0.7)" }} aria-hidden="true" />
-                          <span className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[16px] xl:text-[18px]">{label}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                </motion.div>
+              <div className="absolute left-1/2 -translate-x-1/2 top-[24%] text-center w-[560px]">
+                <ProveSkillHeading size="text-[32px] xl:text-[40px]" />
               </div>
-              {/* The fade-out-on-recede wrapper below is deliberately
-                  un-positioned (no className/position of its own) — the
-                  child ProveSkillRevealCard keeps its own required
-                  `absolute left-[…] top-[…]` positioning exactly as before,
-                  which resolves against this stage (the nearest positioned
-                  ancestor) straight through the non-positioned wrapper. */}
-              <motion.div style={reduceMotion ? undefined : { opacity: cardsRecede }}>
-                <ProveSkillRevealCard className="absolute left-[2%] top-[8%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[0]} reduceMotion={reduceMotion}>
-                  <ProveSkillCard text={PROVE_SKILL_CARDS[0].text} floatDelay={0} />
-                </ProveSkillRevealCard>
-              </motion.div>
-              <motion.div style={reduceMotion ? undefined : { opacity: cardsRecede }}>
-                <ProveSkillRevealCard className="absolute right-[2%] top-[8%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[1]} reduceMotion={reduceMotion}>
-                  <ProveSkillCard text={PROVE_SKILL_CARDS[1].text} floatDelay={0.3} />
-                </ProveSkillRevealCard>
-              </motion.div>
-              <motion.div style={reduceMotion ? undefined : { opacity: cardsRecede }}>
-                <ProveSkillRevealCard className="absolute left-[10%] top-[56%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[2]} reduceMotion={reduceMotion}>
-                  <ProveSkillCard text={PROVE_SKILL_CARDS[2].text} floatDelay={0.6} />
-                </ProveSkillRevealCard>
-              </motion.div>
-              <motion.div style={reduceMotion ? undefined : { opacity: cardsRecede }}>
-                <ProveSkillRevealCard className="absolute right-[10%] top-[56%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[3]} reduceMotion={reduceMotion}>
-                  <ProveSkillCard text={PROVE_SKILL_CARDS[3].text} floatDelay={0.9} />
-                </ProveSkillRevealCard>
-              </motion.div>
-              <motion.div style={reduceMotion ? undefined : { opacity: cardsRecede }}>
-                <ProveSkillRevealCard className="absolute left-1/2 -translate-x-1/2 top-[78%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[4]} reduceMotion={reduceMotion}>
-                  <ProveSkillCard text={PROVE_SKILL_CARDS[4].text} floatDelay={1.2} />
-                </ProveSkillRevealCard>
-              </motion.div>
+              <ProveSkillRevealCard className="absolute left-[2%] top-[8%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[0]} reduceMotion={reduceMotion}>
+                <ProveSkillCard text={PROVE_SKILL_CARDS[0].text} floatDelay={0} />
+              </ProveSkillRevealCard>
+              <ProveSkillRevealCard className="absolute right-[2%] top-[8%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[1]} reduceMotion={reduceMotion}>
+                <ProveSkillCard text={PROVE_SKILL_CARDS[1].text} floatDelay={0.3} />
+              </ProveSkillRevealCard>
+              <ProveSkillRevealCard className="absolute left-[10%] top-[56%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[2]} reduceMotion={reduceMotion}>
+                <ProveSkillCard text={PROVE_SKILL_CARDS[2].text} floatDelay={0.6} />
+              </ProveSkillRevealCard>
+              <ProveSkillRevealCard className="absolute right-[10%] top-[56%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[3]} reduceMotion={reduceMotion}>
+                <ProveSkillCard text={PROVE_SKILL_CARDS[3].text} floatDelay={0.9} />
+              </ProveSkillRevealCard>
+              <ProveSkillRevealCard className="absolute left-1/2 -translate-x-1/2 top-[78%]" progress={revealProgress} reveal={PROVE_SKILL_CARD_REVEALS[4]} reduceMotion={reduceMotion}>
+                <ProveSkillCard text={PROVE_SKILL_CARDS[4].text} floatDelay={1.2} />
+              </ProveSkillRevealCard>
             </div>
           </div>
         </div>
@@ -1561,13 +1349,13 @@ function ProveYourSkill() {
             scrollProgress.ts) but with its own scroll target/progress, since
             this wrapper occupies normal document flow only below the `lg`
             breakpoint. Cards stay in the same vertical stack as the
-            section's original static mobile layout — no carousel, no
-            drag/swipe gesture, no horizontal component of any kind — and
+            section's original static mobile layout - no carousel, no
+            drag/swipe gesture, no horizontal component of any kind - and
             cascade in one after another purely as a function of the user's
             vertical scroll through this wrapper. Uses `100dvh` (not
             `100vh`/`h-screen`) for the sticky panel so it always exactly
             fills the currently-visible viewport as the mobile browser's
-            address bar shows/hides — a static `vh` unit uses the larger
+            address bar shows/hides - a static `vh` unit uses the larger
             (chrome-collapsed) size unconditionally, which can leave this
             centered content pushed below the fold before the chrome
             actually collapses. */}
