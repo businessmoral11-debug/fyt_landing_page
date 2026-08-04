@@ -246,242 +246,6 @@ function AsteroidField() {
   );
 }
 
-// ─── STARFIELD ───────────────────────────────────────────────────────────────
-// Circular soft-edged points via a small custom shader (per-vertex size +
-// color + twinkle phase) — never the default square point sprites. Ordinary
-// alpha blending throughout, deliberately not additive: additive blending
-// is what makes overlapping points melt into a hazy glow instead of reading
-// as small, sharp, discrete points the way real background stars do.
-const STAR_VERTEX_SHADER = `
-  attribute float aSize;
-  attribute vec3 aColor;
-  attribute float aPhase;
-  varying vec3 vColor;
-  varying float vPhase;
-  uniform float uPixelRatio;
-  void main() {
-    vColor = aColor;
-    vPhase = aPhase;
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-    gl_PointSize = aSize * (260.0 / -mvPosition.z) * uPixelRatio;
-    gl_Position = projectionMatrix * mvPosition;
-  }
-`;
-
-const STAR_FRAGMENT_SHADER = `
-  varying vec3 vColor;
-  varying float vPhase;
-  uniform float uTime;
-  uniform float uTwinkle;
-  void main() {
-    vec2 uv = gl_PointCoord - vec2(0.5);
-    float d = length(uv);
-    float alpha = smoothstep(0.5, 0.05, d);
-    float twinkle = mix(1.0, 0.78 + 0.22 * sin(uTime * 0.55 + vPhase * 6.2831), uTwinkle);
-    gl_FragColor = vec4(vColor, alpha * twinkle);
-  }
-`;
-
-// A small handful of brighter "hero" stars get a faint 4-point sparkle
-// cross on top of the same soft circular core, echoing the visible glints
-// on a few bright stars in real night-sky photography — deliberately used
-// on only a few dozen points, not the whole field.
-const SPARKLE_STAR_FRAGMENT_SHADER = `
-  varying vec3 vColor;
-  varying float vPhase;
-  uniform float uTime;
-  void main() {
-    vec2 uv = gl_PointCoord - vec2(0.5);
-    float d = length(uv);
-    float core = smoothstep(0.5, 0.0, d);
-    float crossH = smoothstep(0.05, 0.0, abs(uv.y)) * smoothstep(0.5, 0.0, abs(uv.x));
-    float crossV = smoothstep(0.05, 0.0, abs(uv.x)) * smoothstep(0.5, 0.0, abs(uv.y));
-    float sparkle = max(crossH, crossV) * 0.55;
-    float twinkle = 0.8 + 0.2 * sin(uTime * 0.45 + vPhase * 6.2831);
-    gl_FragColor = vec4(vColor, clamp(core + sparkle, 0.0, 1.0) * twinkle);
-  }
-`;
-
-function pickStarColor(): THREE.Color {
-  const roll = Math.random();
-  if (roll < 0.72) return new THREE.Color(0xf4f6ff);
-  if (roll < 0.94) return new THREE.Color(0xaecbff);
-  return new THREE.Color(0xffdcb0);
-}
-
-function StarLayer({
-  count, radiusMin, radiusMax, sizeMin, sizeMax, twinkle, opacity, sparkle = false,
-}: {
-  count: number; radiusMin: number; radiusMax: number; sizeMin: number; sizeMax: number; twinkle: number; opacity: number; sparkle?: boolean;
-}) {
-  const { positions, colors, sizes, phases } = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
-    const phases = new Float32Array(count);
-    for (let i = 0; i < count; i++) {
-      const r = radiusMin + Math.random() * (radiusMax - radiusMin);
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.6;
-      positions[i * 3 + 2] = r * Math.cos(phi) * 0.7 - 3;
-      const c = pickStarColor();
-      colors[i * 3] = c.r;
-      colors[i * 3 + 1] = c.g;
-      colors[i * 3 + 2] = c.b;
-      sizes[i] = sizeMin + Math.random() * (sizeMax - sizeMin);
-      phases[i] = Math.random();
-    }
-    return { positions, colors, sizes, phases };
-  }, [count, radiusMin, radiusMax, sizeMin, sizeMax]);
-
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uTwinkle: { value: twinkle },
-      uPixelRatio: { value: typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio, 1.5) },
-    }),
-    [twinkle],
-  );
-
-  useFrame(({ clock }) => {
-    if (materialRef.current) materialRef.current.uniforms.uTime.value = clock.getElapsedTime();
-  });
-
-  return (
-    <points>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
-        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
-        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
-      </bufferGeometry>
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={STAR_VERTEX_SHADER}
-        fragmentShader={sparkle ? SPARKLE_STAR_FRAGMENT_SHADER : STAR_FRAGMENT_SHADER}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        opacity={opacity}
-      />
-    </points>
-  );
-}
-
-// ─── COSMIC DUST ─────────────────────────────────────────────────────────────
-// Same circular-point shader, far smaller/dimmer than any star layer —
-// "almost invisible, only enough to create depth."
-function CosmicDust({ count = 80 }: { count?: number }) {
-  const { positions, colors, sizes, phases } = useMemo(() => {
-    const positions = new Float32Array(count * 3);
-    const colors = new Float32Array(count * 3);
-    const sizes = new Float32Array(count);
-    const phases = new Float32Array(count);
-    const dustColor = new THREE.Color(0x7fa0d9);
-    for (let i = 0; i < count; i++) {
-      const r = 2.5 + Math.random() * 5;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      positions[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      positions[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) * 0.5;
-      positions[i * 3 + 2] = r * Math.cos(phi) * 0.6 - 1;
-      colors[i * 3] = dustColor.r;
-      colors[i * 3 + 1] = dustColor.g;
-      colors[i * 3 + 2] = dustColor.b;
-      sizes[i] = 0.35 + Math.random() * 0.7;
-      phases[i] = Math.random();
-    }
-    return { positions, colors, sizes, phases };
-  }, [count]);
-
-  const groupRef = useRef<THREE.Points>(null);
-  const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const uniforms = useMemo(
-    () => ({
-      uTime: { value: 0 },
-      uTwinkle: { value: 0 },
-      uPixelRatio: { value: typeof window === "undefined" ? 1 : Math.min(window.devicePixelRatio, 1.5) },
-    }),
-    [],
-  );
-
-  useFrame(({ clock }, delta) => {
-    if (materialRef.current) materialRef.current.uniforms.uTime.value = clock.getElapsedTime();
-    if (groupRef.current) groupRef.current.rotation.y += delta * 0.003;
-  });
-
-  return (
-    <points ref={groupRef}>
-      <bufferGeometry>
-        <bufferAttribute attach="attributes-position" args={[positions, 3]} />
-        <bufferAttribute attach="attributes-aColor" args={[colors, 3]} />
-        <bufferAttribute attach="attributes-aSize" args={[sizes, 1]} />
-        <bufferAttribute attach="attributes-aPhase" args={[phases, 1]} />
-      </bufferGeometry>
-      <shaderMaterial
-        ref={materialRef}
-        vertexShader={STAR_VERTEX_SHADER}
-        fragmentShader={STAR_FRAGMENT_SHADER}
-        uniforms={uniforms}
-        transparent
-        depthWrite={false}
-        opacity={0.1}
-      />
-    </points>
-  );
-}
-
-// ─── MILKY-WAY-STYLE GALAXY BAND ─────────────────────────────────────────────
-// A single wide, diagonally-rotated plane carrying a canvas-generated soft
-// horizontal band (brightest along its center line, fading top/bottom, with
-// a scatter of low-alpha cloud blotches for texture) — a band, not a
-// centered blob, closer to how the Milky Way actually reads in a wide shot.
-// Ordinary alpha blending, very low final opacity.
-function useGalaxyBandTexture(): THREE.CanvasTexture {
-  return useMemo(() => {
-    const w = 1024, h = 384;
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    const ctx = canvas.getContext("2d")!;
-    const grad = ctx.createLinearGradient(0, 0, 0, h);
-    grad.addColorStop(0, "rgba(18,26,48,0)");
-    grad.addColorStop(0.35, "rgba(42,62,106,0.22)");
-    grad.addColorStop(0.5, "rgba(66,90,144,0.32)");
-    grad.addColorStop(0.65, "rgba(42,62,106,0.22)");
-    grad.addColorStop(1, "rgba(18,26,48,0)");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, w, h);
-    for (let i = 0; i < 46; i++) {
-      const x = Math.random() * w;
-      const y = h * 0.5 + (Math.random() - 0.5) * h * 0.42;
-      const r = 36 + Math.random() * 84;
-      const alpha = 0.04 + Math.random() * 0.07;
-      const blotch = ctx.createRadialGradient(x, y, 0, x, y, r);
-      blotch.addColorStop(0, `rgba(96,124,182,${alpha})`);
-      blotch.addColorStop(1, "rgba(96,124,182,0)");
-      ctx.fillStyle = blotch;
-      ctx.beginPath();
-      ctx.arc(x, y, r, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    return new THREE.CanvasTexture(canvas);
-  }, []);
-}
-
-function GalaxyBand() {
-  const texture = useGalaxyBandTexture();
-  return (
-    <mesh position={[0, 0.6, -24]} rotation={[0, 0, 0.3]}>
-      <planeGeometry args={[48, 18]} />
-      <meshBasicMaterial map={texture} transparent opacity={0.4} depthWrite={false} />
-    </mesh>
-  );
-}
-
 // ─── CAMERA RIG ──────────────────────────────────────────────────────────────
 // Multiple slow, layered sine periods (never an obviously repeating loop)
 // plus a lerped, low-strength mouse-parallax offset, smoothed and never
@@ -502,12 +266,14 @@ function Rig({ mouse }: { mouse: React.RefObject<{ x: number; y: number }> }) {
 
 // Cinematic deep-space hero backdrop, built around real photogrammetry-
 // scanned rock assets (see ASTEROID_MODEL_URLS) rather than any procedural
-// geometry: a layered starfield, a proper asteroid field (large/medium
-// individually placed + instanced distant fragments), faint drifting dust,
-// and a barely-visible Milky-Way-style band, with slow cinematic camera
-// drift and mouse parallax. Rendered as a background layer behind the
-// existing orbital radar stage (HeroStage in App.tsx) — see HeroSceneGate
-// for the desktop/reduced-motion gating that decides whether this mounts.
+// geometry: a bare dark background plus the fixed 6-asteroid composition
+// (AsteroidField), with slow cinematic camera drift and mouse parallax.
+// No starfield/dust/nebula layer for now — deliberately removed (was
+// reading as distracting glowing sparkle clutter rather than a quiet
+// backdrop); that layer gets rebuilt separately later. Rendered as a
+// background layer behind the existing orbital radar stage (HeroStage in
+// App.tsx) — see HeroSceneGate for the desktop/reduced-motion gating that
+// decides whether this mounts at all.
 export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
 
@@ -551,12 +317,6 @@ export default function HeroScene() {
       />
       <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
 
-      <GalaxyBand />
-      <StarLayer count={1600} radiusMin={16} radiusMax={42} sizeMin={0.45} sizeMax={1.1} twinkle={0.3} opacity={0.45} />
-      <StarLayer count={420} radiusMin={9} radiusMax={17} sizeMin={0.85} sizeMax={1.6} twinkle={0.45} opacity={0.6} />
-      <StarLayer count={80} radiusMin={5} radiusMax={9.5} sizeMin={1.3} sizeMax={2.2} twinkle={0.5} opacity={0.75} />
-      <StarLayer count={16} radiusMin={4} radiusMax={8} sizeMin={2.4} sizeMax={3.4} twinkle={0.55} opacity={0.9} sparkle />
-      <CosmicDust />
       <AsteroidField />
       <Rig mouse={mouse} />
     </Canvas>
