@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, type RootState } from "@react-three/fiber";
-import { useGLTF } from "@react-three/drei";
+import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
 // ─── REAL ASTEROID ASSETS ────────────────────────────────────────────────────
@@ -16,11 +16,18 @@ import * as THREE from "three";
 const ASTEROID_MODEL_URLS = {
   rock1: "/models/moon-rock-01/moon_rock_01_1k.gltf",
   rock2: "/models/moon-rock-02/moon_rock_02_1k.gltf",
+  // The hero-right asteroid gets the 2k texture set (same real geometry,
+  // sharper baked-in surface detail) since it's the single most-scrutinized
+  // object in the scene — the other rocks stay at 1k to keep the rest of
+  // the field's download weight modest.
+  rock2Hi: "/models/moon-rock-02/moon_rock_02_2k.gltf",
   rock3: "/models/moon-rock-03/moon_rock_03_1k.gltf",
 } as const;
+const ROCK2_DISPLACEMENT_URL = "/models/moon-rock-02/textures/moon_rock_02_disp_2k.jpg";
 
 useGLTF.preload(ASTEROID_MODEL_URLS.rock1);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock2);
+useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
 
 interface AsteroidSpec {
@@ -28,20 +35,31 @@ interface AsteroidSpec {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
   position: [number, number, number];
+  rotation?: [number, number, number];
   scale: number;
   rotationSpeed: number;
   driftRadius: number;
   driftSpeed: number;
   colorTint: number;
   roughnessJitter: number;
+  castShadow?: boolean;
+  /** Real displacement map (from the same scan, not synthetic) applied via
+   *  MeshStandardMaterial's built-in displacementMap — adds genuine extra
+   *  surface relief (deeper crater floors, chipped-looking edges) beyond
+   *  what the base mesh resolution shows, without touching the geometry
+   *  data itself. Reserved for the single hero-right asteroid. */
+  displacementMap?: THREE.Texture;
+  displacementScale?: number;
+  displacementBias?: number;
 }
 
 // One real asteroid mesh: never distorted (geometry is used exactly as
 // loaded — only position/rotation/scale as a whole object, plus a per-
-// instance material clone for slight color/roughness variation, are ever
-// touched). Rotates slowly on its own axis and drifts in a small bounded
-// loop — "heavy," not a floating balloon: rotation speeds and drift radii
-// are deliberately tiny.
+// instance material clone for slight color/roughness variation and,
+// optionally, a real displacement map, are ever touched). Rotates
+// extremely slowly on its own axis and drifts in a small bounded loop —
+// "massive," not a floating balloon: rotation speeds and drift radii are
+// deliberately tiny, tuned even slower than the previous pass.
 function Asteroid({ spec }: { spec: AsteroidSpec }) {
   const material = useMemo(() => {
     const m = spec.material.clone() as THREE.MeshStandardMaterial;
@@ -49,8 +67,14 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
     if (typeof m.roughness === "number") {
       m.roughness = THREE.MathUtils.clamp(m.roughness + spec.roughnessJitter, 0.35, 1);
     }
+    if (spec.displacementMap) {
+      m.displacementMap = spec.displacementMap;
+      m.displacementScale = spec.displacementScale ?? 0.02;
+      m.displacementBias = spec.displacementBias ?? -(spec.displacementScale ?? 0.02) / 2;
+    }
+    m.needsUpdate = true;
     return m;
-  }, [spec.material, spec.colorTint, spec.roughnessJitter]);
+  }, [spec.material, spec.colorTint, spec.roughnessJitter, spec.displacementMap, spec.displacementScale, spec.displacementBias]);
 
   useEffect(() => () => material.dispose(), [material]);
 
@@ -70,43 +94,176 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
     );
   });
 
-  return <mesh ref={ref} geometry={spec.geometry} material={material} scale={spec.scale} castShadow receiveShadow />;
+  return (
+    <mesh
+      ref={ref}
+      geometry={spec.geometry}
+      material={material}
+      position={spec.position}
+      rotation={spec.rotation}
+      scale={spec.scale}
+      castShadow={spec.castShadow ?? true}
+      receiveShadow={spec.castShadow ?? true}
+    />
+  );
 }
 
-// Just 3 asteroids total now — no medium tier, no instanced distant
-// fragments — each pushed out toward a screen edge/corner so none of them
-// sit behind the Hero's centered headline band. rock1 uses its LOD1 node
-// (2824 verts) rather than LOD0 (5384 verts): fewer facets reads as a
-// rounder, smoother boulder instead of a sharply jagged rock, while still
-// being the real scanned mesh, just a coarser baked-in level of detail —
-// not a distortion of it.
+// Small/background fragments, real GPU instancing (one draw call per
+// group) — for the numerous minor tier, where instancing actually earns
+// its keep, versus the handful of large/medium rocks a viewer can actually
+// study, which stay as individually-placed unique meshes.
+function FragmentInstances({
+  geometry, material, count, spread, depthNear, depthFar, baseScale,
+}: {
+  geometry: THREE.BufferGeometry; material: THREE.Material; count: number; spread: number; depthNear: number; depthFar: number; baseScale: number;
+}) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const clonedMaterial = useMemo(() => material.clone(), [material]);
+  useEffect(() => () => clonedMaterial.dispose(), [clonedMaterial]);
+
+  const instances = useMemo(() => {
+    const out: { position: THREE.Vector3; axis: THREE.Vector3; speed: number; scale: number }[] = [];
+    for (let i = 0; i < count; i++) {
+      out.push({
+        position: new THREE.Vector3(
+          (Math.random() - 0.5) * spread,
+          (Math.random() - 0.5) * spread * 0.5,
+          -depthNear - Math.random() * (depthFar - depthNear),
+        ),
+        axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
+        speed: 0.006 + Math.random() * 0.01,
+        scale: baseScale * (0.55 + Math.random() * 0.85),
+      });
+    }
+    return out;
+  }, [count, spread, depthNear, depthFar, baseScale]);
+
+  const dummy = useMemo(() => new THREE.Object3D(), []);
+  const rotations = useRef(instances.map(() => new THREE.Euler()));
+
+  useFrame((_, delta) => {
+    const mesh = meshRef.current;
+    if (!mesh) return;
+    instances.forEach((inst, i) => {
+      const rot = rotations.current[i];
+      rot.x += inst.axis.x * inst.speed * delta;
+      rot.y += inst.axis.y * inst.speed * delta;
+      rot.z += inst.axis.z * inst.speed * delta;
+      dummy.position.copy(inst.position);
+      dummy.rotation.copy(rot);
+      dummy.scale.setScalar(inst.scale);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+  });
+
+  return <instancedMesh ref={meshRef} args={[geometry, clonedMaterial, instances.length]} />;
+}
+
+// Full depth composition: 2 large foreground asteroids (left + right,
+// deliberately different rocks with different static orientations — not
+// mirrored), one small "framing" asteroid near the top-left, 4 midground
+// asteroids, and 8 small background fragments (2 instanced groups of 4).
 function AsteroidField() {
   const rock1 = useGLTF(ASTEROID_MODEL_URLS.rock1);
   const rock2 = useGLTF(ASTEROID_MODEL_URLS.rock2);
+  const rock2Hi = useGLTF(ASTEROID_MODEL_URLS.rock2Hi);
   const rock3 = useGLTF(ASTEROID_MODEL_URLS.rock3);
+  const rock2Displacement = useTexture(ROCK2_DISPLACEMENT_URL);
+
+  useEffect(() => {
+    rock2Displacement.colorSpace = THREE.NoColorSpace;
+    rock2Displacement.needsUpdate = true;
+  }, [rock2Displacement]);
 
   const rock1LOD0 = rock1.nodes["moon_rock_01_LOD0"] as THREE.Mesh;
-  const rock1Round = (rock1.nodes["moon_rock_01_LOD1"] as THREE.Mesh) ?? rock1LOD0;
+  const rock1LOD1 = (rock1.nodes["moon_rock_01_LOD1"] as THREE.Mesh) ?? rock1LOD0;
+  const rock1LOD2 = (rock1.nodes["moon_rock_01_LOD2"] as THREE.Mesh) ?? rock1LOD0;
+  const rock1LOD3 = (rock1.nodes["moon_rock_01_LOD3"] as THREE.Mesh) ?? rock1LOD0;
   const rock2Mesh = rock2.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
+  const rock2HiMesh = rock2Hi.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
   const rock3Mesh = rock3.nodes["moon_rock_03_LOD0"] as THREE.Mesh;
 
   const largeSpecs = useMemo<AsteroidSpec[]>(
     () => [
-      // Far left, lower third — clear of the centered headline.
-      { key: "L1", geometry: rock1Round.geometry, material: rock1Round.material, position: [-5.6, -1.9, -3.2], scale: 11.5, rotationSpeed: 0.012, driftRadius: 0.05, driftSpeed: 0.018, colorTint: 1, roughnessJitter: 0 },
-      // Far right, upper corner — above/beside the headline band.
-      { key: "L2", geometry: rock2Mesh.geometry, material: rock2Mesh.material, position: [5.7, 1.9, -3.8], scale: 14, rotationSpeed: 0.009, driftRadius: 0.055, driftSpeed: 0.015, colorTint: 0.94, roughnessJitter: 0.03 },
-      // Far right, lower third — spread apart from L2 so they don't cluster.
-      { key: "L3", geometry: rock3Mesh.geometry, material: rock3Mesh.material, position: [4.7, -2.4, -4.4], scale: 10.5, rotationSpeed: 0.014, driftRadius: 0.045, driftSpeed: 0.021, colorTint: 1.05, roughnessJitter: -0.02 },
+      // RIGHT — the hero rock: 2k textures + a real displacement map for
+      // deeper craters/chipped edges, warm-tinted dark rock.
+      {
+        key: "right",
+        geometry: rock2HiMesh.geometry,
+        material: rock2HiMesh.material,
+        position: [5.7, 1.7, -3.8],
+        rotation: [0.3, -0.6, 0.15],
+        scale: 14,
+        rotationSpeed: 0.006,
+        driftRadius: 0.03,
+        driftSpeed: 0.012,
+        colorTint: 0.92,
+        roughnessJitter: 0.02,
+        displacementMap: rock2Displacement,
+        displacementScale: 0.016,
+      },
+      // LEFT — a different rock (rock1) at a distinctly different static
+      // orientation, partially clipped off the left edge of the frame.
+      {
+        key: "left",
+        geometry: rock1LOD0.geometry,
+        material: rock1LOD0.material,
+        position: [-7.4, -1.4, -3.6],
+        rotation: [1.1, 2.4, -0.4],
+        scale: 12,
+        rotationSpeed: 0.005,
+        driftRadius: 0.028,
+        driftSpeed: 0.01,
+        colorTint: 1.04,
+        roughnessJitter: -0.02,
+      },
+      // Small "framing" rock near the top-left, clear of the navbar.
+      {
+        key: "top-left",
+        geometry: rock3Mesh.geometry,
+        material: rock3Mesh.material,
+        position: [-4.4, 3.1, -4.2],
+        rotation: [0.6, 1.2, 0.3],
+        scale: 3.4,
+        rotationSpeed: 0.007,
+        driftRadius: 0.025,
+        driftSpeed: 0.011,
+        colorTint: 1,
+        roughnessJitter: 0,
+      },
     ],
-    [rock1Round, rock2Mesh, rock3Mesh],
+    [rock2HiMesh, rock2Displacement, rock1LOD0, rock3Mesh],
   );
+
+  const midgroundSpecs = useMemo<AsteroidSpec[]>(() => {
+    const sources = [rock1LOD1, rock2Mesh, rock3Mesh, rock1LOD1];
+    return sources.map((src, i) => ({
+      key: `mid${i}`,
+      geometry: src.geometry,
+      material: src.material,
+      position: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 5, -6.5 - Math.random() * 3] as [number, number, number],
+      rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI] as [number, number, number],
+      scale: 2.8 + Math.random() * 1.8,
+      rotationSpeed: 0.006 + Math.random() * 0.008,
+      driftRadius: 0.02 + Math.random() * 0.03,
+      driftSpeed: 0.008 + Math.random() * 0.008,
+      roughnessJitter: (Math.random() - 0.5) * 0.08,
+      colorTint: 0.92 + Math.random() * 0.2,
+    }));
+  }, [rock1LOD1, rock2Mesh, rock3Mesh]);
 
   return (
     <>
       {largeSpecs.map((spec) => (
         <Asteroid key={spec.key} spec={spec} />
       ))}
+      {midgroundSpecs.map((spec) => (
+        <Asteroid key={spec.key} spec={spec} />
+      ))}
+      <FragmentInstances geometry={rock1LOD3.geometry} material={rock1LOD0.material} count={4} spread={13} depthNear={9} depthFar={16} baseScale={0.55} />
+      <FragmentInstances geometry={rock1LOD2.geometry} material={rock3Mesh.material} count={4} spread={12} depthNear={10} depthFar={17} baseScale={0.5} />
     </>
   );
 }
@@ -394,13 +551,16 @@ export default function HeroScene() {
       style={{ position: "absolute", inset: 0 }}
     >
       {/* No HDRI environment map (no texture asset available for one) — a
-          small three-light rig stands in: weak ambient fill, one warm-white
-          key light casting real shadow maps across the asteroid field, and
-          a dim blue rim light from the opposite side. */}
-      <ambientLight intensity={0.15} color="#33507f" />
+          small light rig stands in: weak cool ambient, a warm-white key
+          light (slightly stronger now, for more defined specular pickup on
+          the rock surfaces) casting real shadow maps across the asteroid
+          field, a soft blue rim light from the opposite side, and a very
+          weak warm hemisphere fill so shadow sides never go fully flat. */}
+      <ambientLight intensity={0.14} color="#33507f" />
+      <hemisphereLight args={["#fff3e2", "#141c34", 0.16]} />
       <directionalLight
         position={[6, 5, 6]}
-        intensity={1.15}
+        intensity={1.3}
         color="#fff3e2"
         castShadow
         shadow-mapSize={[1024, 1024]}
@@ -411,7 +571,7 @@ export default function HeroScene() {
         shadow-camera-top={10}
         shadow-camera-bottom={-10}
       />
-      <pointLight position={[-6, -3, -4]} intensity={0.3} color="#3b82f6" />
+      <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
 
       <GalaxyBand />
       <StarLayer count={1600} radiusMin={16} radiusMax={42} sizeMin={0.45} sizeMax={1.1} twinkle={0.3} opacity={0.45} />
