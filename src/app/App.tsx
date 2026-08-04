@@ -149,30 +149,41 @@ import {
   pricingCompletionCtaGlow,
 } from "@/app/pricingMotion";
 import {
-  LIVE_PAYOUTS_CARD_STAGGER_S,
-  LIVE_PAYOUTS_CARD_DURATION_S,
-  LIVE_PAYOUTS_CARD_BLUR_PX,
+  LIVE_PAYOUTS_ROW_STAGGER_S,
+  LIVE_PAYOUTS_ROW_DURATION_S,
+  LIVE_PAYOUTS_ROW_BLUR_PX,
   LIVE_PAYOUTS_AMOUNT_DELAY_S,
   LIVE_PAYOUTS_CHECK_DELAY_S,
   LIVE_PAYOUTS_DOT_DELAY_S,
-  LIVE_PAYOUTS_CARD_HOVER_TRANSITION,
-  livePayoutsCardHover,
-  LIVE_PAYOUTS_CARD_TILT_MAX_DEG,
-  LIVE_PAYOUTS_CARD_SPOTLIGHT_OPACITY,
+  LIVE_PAYOUTS_ROW_HOVER_TRANSITION,
+  livePayoutsRowHover,
+  LIVE_PAYOUTS_SPOTLIGHT_OPACITY,
   LIVE_PAYOUTS_DOT_BREATHE_DURATION_S,
   livePayoutsDotBreathe,
-  LIVE_PAYOUTS_CHECK_DRAW_DURATION_S,
   LIVE_PAYOUTS_AMOUNT_SPRING,
   LIVE_PAYOUTS_AMOUNT_GLOW,
   LIVE_PAYOUTS_AMOUNT_GLOW_HOVER,
+  LIVE_PAYOUTS_AMOUNT_SHIMMER_S,
+  LIVE_PAYOUTS_CHECK_DRAW_DURATION_S,
+  LIVE_PAYOUTS_BADGE_PULSE_DURATION_S,
+  livePayoutsBadgePulse,
+  LIVE_PAYOUTS_HEADER_STICKY_TOP_PX,
+  LIVE_PAYOUTS_DIVIDER_TRANSITION,
+  LIVE_PAYOUTS_COLUMN_LABEL_STAGGER_S,
+  LIVE_PAYOUTS_HEADER_DOT_TRANSITION,
+  livePayoutsHeaderDotPulse,
+  LIVE_PAYOUTS_SCAN_LIGHT_TRANSITION,
+  livePayoutsScanLight,
+  LIVE_PAYOUTS_SCAN_LIGHT_INITIAL_X,
+  LIVE_PAYOUTS_BADGE_BLINK_DURATION_S,
+  livePayoutsBadgeBlink,
   LIVE_PAYOUTS_CTA_GRADIENT_DURATION_S,
   livePayoutsCtaGradientPosition,
-  LIVE_PAYOUTS_CTA_SHIMMER_TRANSITION,
-  livePayoutsCtaShimmer,
-  LIVE_PAYOUTS_CTA_SHIMMER_INITIAL_X,
+  LIVE_PAYOUTS_CTA_FLOAT_TRANSITION,
+  livePayoutsCtaFloatY,
   LIVE_PAYOUTS_BG_GLOW_OPACITY,
+  LIVE_PAYOUTS_VIGNETTE_OPACITY,
   LIVE_PAYOUTS_NOISE_OPACITY,
-  LIVE_PAYOUTS_DIVIDER_TRANSITION,
 } from "@/app/livePayoutsMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
@@ -2055,22 +2066,28 @@ function AnimatedRewardAmount({ amount, delaySeconds, isHovered }: { amount: str
   return (
     <p
       aria-label={`Reward amount: ${amount}`}
-      className="flex items-baseline gap-[2px] font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[34px] lg:text-[40px] tracking-[-0.02em] transition-[text-shadow] duration-300"
+      className="flex items-baseline gap-[2px] font-['DM_Sans',sans-serif] font-semibold text-[#3b82f6] text-[22px] lg:text-[24px] tracking-[-0.02em] transition-[text-shadow] duration-300"
       style={{ textShadow: isHovered ? LIVE_PAYOUTS_AMOUNT_GLOW_HOVER : LIVE_PAYOUTS_AMOUNT_GLOW }}
     >
       <span aria-hidden="true">+</span>
-      <span ref={ref} aria-hidden="true" className="count-shimmer" data-shimmer={prefersReducedMotion ? undefined : "true"} style={{ animationDuration: "8s" }}>
+      <span ref={ref} aria-hidden="true" className="count-shimmer" data-shimmer={prefersReducedMotion ? undefined : "true"} style={{ animationDuration: LIVE_PAYOUTS_AMOUNT_SHIMMER_S }}>
         {prefersReducedMotion ? amount : renderCountUp(segments, 0)}
       </span>
     </p>
   );
 }
 
-// Animated checkmark — draws in (SVG pathLength 0 -> 1) rather than just
-// fading, per the redesign's "Verified badge: Animated checkmark" ask.
+// Verified pill: checkmark draws in once (SVG pathLength 0 -> 1), then the
+// whole pill pulses gently every few seconds — gradient background instead
+// of a flat fill.
 function VerifiedBadge({ delaySeconds, prefersReducedMotion }: { delaySeconds: number; prefersReducedMotion: boolean | null }) {
   return (
-    <span className="inline-flex items-center gap-[4px] px-[10px] py-[4px] rounded-full shrink-0" style={{ background: "rgba(59,130,246,0.1)" }}>
+    <motion.span
+      className="inline-flex items-center gap-[4px] px-[10px] py-[4px] rounded-full shrink-0"
+      style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.16), rgba(96,165,250,0.06))", border: "1px solid rgba(59,130,246,0.15)" }}
+      animate={prefersReducedMotion ? undefined : livePayoutsBadgePulse}
+      transition={prefersReducedMotion ? undefined : { duration: LIVE_PAYOUTS_BADGE_PULSE_DURATION_S, repeat: Infinity, ease: "easeInOut", delay: delaySeconds + LIVE_PAYOUTS_CHECK_DRAW_DURATION_S }}
+    >
       <svg width="11" height="11" viewBox="0 0 14 14" fill="none">
         <motion.path
           d="M11.6662 3.5L5.25017 9.9162L2.3338 6.99975"
@@ -2085,7 +2102,7 @@ function VerifiedBadge({ delaySeconds, prefersReducedMotion }: { delaySeconds: n
         />
       </svg>
       <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#3b82f6] text-[11px]">Verified</span>
-    </span>
+    </motion.span>
   );
 }
 
@@ -2097,13 +2114,13 @@ const LIVE_PAYOUTS_NOISE_SVG =
   "<filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter>" +
   "<rect width='100%' height='100%' filter='url(%23n)'/></svg>";
 
-// One premium reward card. Owns its own useTilt (rotate toward cursor, max
-// 3deg) and useCursorGlow (per-card spotlight) — both hooks, so this can't
-// live inline inside a .map() callback. `isHovered` (plain React state, set
-// via onHoverStart/onHoverEnd) drives the reward amount's stronger glow —
-// deliberately NOT read from a ref/CSS to keep that specific cross-element
-// reaction simple and explicit.
-function RewardCard({
+// One premium table row. Owns its own useCursorGlow (per-row spotlight) —
+// a hook, so this can't live inline inside a .map() callback. `isHovered`
+// (plain React state, set via onMouseEnter/Leave) drives the reward
+// amount's stronger glow and the trader name's brighter color — kept
+// explicit rather than CSS-only since it needs to reach into sibling
+// elements' styles.
+function RewardRow({
   record,
   index,
   prefersReducedMotion,
@@ -2112,109 +2129,97 @@ function RewardCard({
   index: number;
   prefersReducedMotion: boolean | null;
 }) {
-  const tilt = useTilt<HTMLDivElement>(LIVE_PAYOUTS_CARD_TILT_MAX_DEG);
   const glow = useCursorGlow<HTMLDivElement>();
   const [isHovered, setIsHovered] = useState(false);
-  const cardDelay = prefersReducedMotion ? 0 : index * LIVE_PAYOUTS_CARD_STAGGER_S;
+  const rowDelay = prefersReducedMotion ? 0 : index * LIVE_PAYOUTS_ROW_STAGGER_S;
+  const isEven = index % 2 === 0;
 
-  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
-    tilt.onMouseMove(e);
-    glow.onMouseMove(e);
-  }
   function handleMouseLeave() {
-    tilt.onMouseLeave();
     glow.onMouseLeave();
     setIsHovered(false);
   }
 
   return (
     <motion.div
-      ref={(el: HTMLDivElement | null) => {
-        tilt.ref.current = el;
-        glow.ref.current = el;
-      }}
+      ref={glow.ref}
       layout
-      onMouseMove={handleMouseMove}
+      onMouseMove={glow.onMouseMove}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={handleMouseLeave}
-      // Fade + blur + slide in from the top, 80ms-per-card stagger on
-      // initial reveal — and since a brand-new card is always prepended
+      // Fade + blur + slide in from the top, 70ms-per-row stagger on
+      // initial reveal — and since a brand-new row is always prepended
       // (index 0, delay 0), a genuinely new live reward mounts with this
       // exact same motion, satisfying "newest reward slides in from the
       // top" for free, no separate code path needed. `exit` is what makes
-      // the oldest card (sliced off the end of the array once a 6th
+      // the oldest row (sliced off the end of the array once a 6th
       // arrives) fade away instead of just vanishing; combined with
-      // `layout`, the remaining cards reflow smoothly with no jump.
+      // `layout`, the remaining rows reflow smoothly with no jump.
       // `filter` is the one property here that isn't `transform`/
       // `opacity` — there's no transform-based way to achieve a blur-in,
       // and it's explicitly requested, so it's a deliberate, disclosed
       // exception (blur is still GPU-composited on modern browsers, same
       // as opacity/transform).
-      initial={prefersReducedMotion ? undefined : { opacity: 0, y: -28, filter: `blur(${LIVE_PAYOUTS_CARD_BLUR_PX}px)` }}
+      initial={prefersReducedMotion ? undefined : { opacity: 0, y: -20, filter: `blur(${LIVE_PAYOUTS_ROW_BLUR_PX}px)` }}
       animate={prefersReducedMotion ? undefined : { opacity: 1, y: 0, filter: "blur(0px)" }}
-      exit={prefersReducedMotion ? undefined : { opacity: 0, y: 16, filter: `blur(${LIVE_PAYOUTS_CARD_BLUR_PX}px)`, transition: { duration: 0.4, ease: "easeIn" } }}
-      whileHover={prefersReducedMotion ? undefined : livePayoutsCardHover}
-      transition={{ duration: LIVE_PAYOUTS_CARD_DURATION_S, delay: cardDelay, ease: [0.16, 1, 0.3, 1] }}
+      exit={prefersReducedMotion ? undefined : { opacity: 0, y: 12, filter: `blur(${LIVE_PAYOUTS_ROW_BLUR_PX}px)`, transition: { duration: 0.35, ease: "easeIn" } }}
+      whileHover={prefersReducedMotion ? undefined : livePayoutsRowHover}
+      transition={{ duration: LIVE_PAYOUTS_ROW_DURATION_S, delay: rowDelay, ease: [0.16, 1, 0.3, 1] }}
+      className="relative flex items-center flex-wrap lg:flex-nowrap gap-[12px] lg:gap-[16px] px-[24px] py-[22px]"
       style={{
-        rotateX: tilt.style.rotateX,
-        rotateY: tilt.style.rotateY,
-        transformPerspective: tilt.style.transformPerspective,
-        border: "1px solid rgba(0,0,0,0.07)",
-        background: "linear-gradient(165deg, rgba(255,255,255,0.85) 0%, rgba(250,251,255,0.72) 100%)",
-        backdropFilter: "blur(14px)",
-        WebkitBackdropFilter: "blur(14px)",
-        boxShadow: "0 24px 48px -28px rgba(15,23,42,0.18)",
+        borderBottom: "1px solid rgba(0,0,0,0.035)",
+        background: isEven ? "transparent" : "rgba(59,130,246,0.02)",
       }}
-      className="relative rounded-[28px] p-[28px] lg:p-[32px] overflow-hidden w-full"
     >
-      {/* Mouse spotlight — this card only. */}
+      {/* Left accent line — grows in on hover. */}
+      <motion.div
+        aria-hidden="true"
+        className="absolute left-0 top-0 bottom-0 w-[3px] origin-top pointer-events-none"
+        style={{ background: "linear-gradient(180deg, #3b82f6, #60a5fa)" }}
+        animate={{ scaleY: isHovered && !prefersReducedMotion ? 1 : 0 }}
+        transition={LIVE_PAYOUTS_ROW_HOVER_TRANSITION}
+      />
+      {/* Mouse spotlight — this row only. */}
       <div
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 transition-opacity duration-300"
         style={{
           opacity: isHovered ? 1 : 0,
-          background: `radial-gradient(240px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(59,130,246,${LIVE_PAYOUTS_CARD_SPOTLIGHT_OPACITY}), transparent 70%)`,
+          background: `radial-gradient(300px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(59,130,246,${LIVE_PAYOUTS_SPOTLIGHT_OPACITY}), transparent 70%)`,
         }}
       />
-      <div className="relative flex items-center gap-[8px] mb-[14px]">
-        <motion.span
-          className="inline-flex rounded-full size-[8px] bg-[#22c55e] shrink-0"
-          animate={prefersReducedMotion ? undefined : livePayoutsDotBreathe}
-          transition={prefersReducedMotion ? undefined : { duration: LIVE_PAYOUTS_DOT_BREATHE_DURATION_S, repeat: Infinity, ease: "easeInOut", delay: cardDelay + LIVE_PAYOUTS_DOT_DELAY_S }}
-        />
-        <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#16a34a] text-[11px] tracking-[1px] uppercase">Live</span>
-      </div>
-      <div className="relative flex items-center gap-[10px] mb-[6px]">
-        <div className="flex items-center justify-center rounded-full size-[32px] shrink-0" style={{ background: "#eef0f6" }}>
-          <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#1f2430] text-[12px]">{deriveInitials(record.name)}</span>
+      <div className="relative flex-1 flex items-center gap-[12px] min-w-[200px]">
+        <div className="relative shrink-0">
+          <motion.span
+            className="absolute -top-px -right-px rounded-full size-[9px]"
+            style={{ background: "#22c55e", border: "2px solid white" }}
+            animate={prefersReducedMotion ? undefined : livePayoutsDotBreathe}
+            transition={prefersReducedMotion ? undefined : { duration: LIVE_PAYOUTS_DOT_BREATHE_DURATION_S, repeat: Infinity, ease: "easeInOut", delay: rowDelay + LIVE_PAYOUTS_DOT_DELAY_S }}
+          />
+          <div className="flex items-center justify-center rounded-full size-[36px]" style={{ background: "linear-gradient(135deg, #eef2ff, #dbeafe)" }}>
+            <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#1e3a8a] text-[12px]">{deriveInitials(record.name)}</span>
+          </div>
         </div>
-        <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[16px]">{record.name}</p>
+        <p
+          className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] transition-colors duration-300"
+          style={{ color: isHovered ? "#0b0c11" : "#1f2430" }}
+        >
+          {record.name}
+        </p>
       </div>
-      <div className="relative mt-[6px]">
-        <AnimatedRewardAmount amount={record.amount} delaySeconds={cardDelay + LIVE_PAYOUTS_AMOUNT_DELAY_S} isHovered={isHovered} />
+      <div className="relative flex-1 min-w-[140px]">
+        <AnimatedRewardAmount amount={record.amount} delaySeconds={rowDelay + LIVE_PAYOUTS_AMOUNT_DELAY_S} isHovered={isHovered} />
       </div>
-      <div className="relative flex items-center gap-[10px] mt-[14px]">
-        <VerifiedBadge delaySeconds={cardDelay + LIVE_PAYOUTS_CHECK_DELAY_S} prefersReducedMotion={prefersReducedMotion} />
-        <span className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[13px]">{timeAgo(record.timestamp)}</span>
+      <div className="relative flex-1 flex items-center min-w-[140px]">
+        <VerifiedBadge delaySeconds={rowDelay + LIVE_PAYOUTS_CHECK_DELAY_S} prefersReducedMotion={prefersReducedMotion} />
       </div>
-      <motion.div
-        className="relative h-px my-[22px] origin-left"
-        style={{ background: "rgba(0,0,0,0.07)" }}
-        initial={prefersReducedMotion ? undefined : { scaleX: 0 }}
-        animate={prefersReducedMotion ? undefined : { scaleX: 1 }}
-        transition={{ ...LIVE_PAYOUTS_DIVIDER_TRANSITION, delay: cardDelay + 0.3 }}
-      />
-      <a
-        href="https://provesrc.com/verified/?src=fundingyourtrades"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="group/link relative inline-flex items-center gap-[6px] no-underline"
-      >
-        <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#3b82f6] text-[13px]">View Reward</span>
-        <svg width="12" height="12" viewBox="0 0 16 16" fill="none" className="transition-transform duration-300 group-hover/link:translate-x-[4px]">
-          <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#3b82f6" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </a>
+      <div className="relative w-full lg:w-[80px]">
+        <p
+          className="font-['Inter:Regular',sans-serif] font-normal text-[12px] transition-[color,opacity] duration-300"
+          style={{ color: "#8a90a3", opacity: isHovered ? 1 : 0.75 }}
+        >
+          {timeAgo(record.timestamp)}
+        </p>
+      </div>
     </motion.div>
   );
 }
@@ -2223,21 +2228,43 @@ function LivePayouts() {
   const prefersReducedMotion = useReducedMotion();
   const [emblaRef, emblaApi] = useEmblaCarousel({ loop: true, align: "start" }, buildAutoplayPlugins(prefersReducedMotion));
   const { connectionState, records } = useLiveRewardsFeed();
+
+  // "Connecting badge blinks once" whenever a new reward arrives — a fresh
+  // `key` remount replays the one-shot blink, tracked off the newest
+  // record's identity (not just records.length, since the array is also
+  // capped at MAX_LIVE_REWARDS and could stay the same length while its
+  // head changes).
+  const newestKey = records[0] ? records[0].name + records[0].timestamp : "";
+  const isFirstArrival = useRef(true);
+  const [blinkTick, setBlinkTick] = useState(0);
+  useEffect(() => {
+    if (isFirstArrival.current) {
+      isFirstArrival.current = false;
+      return;
+    }
+    if (newestKey) setBlinkTick((t) => t + 1);
+  }, [newestKey]);
+
   return (
     <div id="live-payouts" className="bg-white relative shrink-0 w-full">
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <AmbientBlob className="left-[6%] top-[8%]" color="rgba(59,130,246,0.07)" size={480} duration={23} />
         <AmbientBlob className="right-[10%] bottom-[12%]" color="rgba(34,197,94,0.05)" size={380} duration={18} />
-        {/* Soft radial blue glow behind the cards. */}
+        {/* Soft radial blue glow behind the table. */}
         <div
-          className="absolute left-1/2 top-[68%] rounded-full"
+          className="absolute left-1/2 top-[62%] rounded-full"
           style={{
             width: 900,
-            height: 600,
+            height: 500,
             transform: "translate(-50%, -50%)",
             background: `radial-gradient(ellipse, rgba(59,130,246,${LIVE_PAYOUTS_BG_GLOW_OPACITY}), transparent 70%)`,
             filter: "blur(80px)",
           }}
+        />
+        {/* Soft vignette. */}
+        <div
+          className="absolute inset-0"
+          style={{ background: `radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,${LIVE_PAYOUTS_VIGNETTE_OPACITY}) 100%)` }}
         />
         {/* Subtle noise texture. */}
         <div
@@ -2300,78 +2327,155 @@ function LivePayouts() {
           </motion.button>
         </motion.div>
 
-        {/* Recent Rewards — premium card feed (no longer a table). Icon-only
-            usage of TableColIcon has been removed entirely, but the
-            component itself stays defined (contentAssertions.test.ts pins
-            its exact signature) — see its earlier definition in the file. */}
-        <div className="w-full max-w-[640px] mx-auto flex flex-col gap-[20px]">
-          <div className="flex items-center gap-[10px]">
-            <span className="relative flex size-[8px]">
-              {connectionState === "connected" && (
-                <span className="absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75 animate-ping" />
-              )}
-              <span className={`relative inline-flex rounded-full size-[8px] ${connectionState === "connected" ? "bg-[#22c55e]" : "bg-[#64748b]"}`} />
-            </span>
-            <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[15px]">Recent Rewards</p>
-            <span className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px]">
-              {connectionState === "connected" ? "Live" : "Connecting"}
-            </span>
+        {/* Recent Rewards — premium live TABLE (kept as a table structure
+            per explicit request, not converted to cards). Outer wrapper has
+            NO overflow-hidden (that would break the sticky header below —
+            an overflow-hidden ancestor prevents position:sticky from ever
+            engaging); rounded corners come from border-radius alone (which
+            doesn't need clipping to render correctly), and any content that
+            genuinely needs corner-clipping (the decorative background
+            layer, and the header's own scanning-light sweep) gets its own
+            separate, smaller overflow-hidden box instead — same pattern
+            PanelCard already uses elsewhere in this file. */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-60px" }}
+          transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full rounded-[28px]"
+          style={{ border: "1px solid rgba(0,0,0,0.06)", boxShadow: "0 40px 80px -32px rgba(15,23,42,0.2)" }}
+        >
+          <div className="absolute inset-0 rounded-[28px] overflow-hidden pointer-events-none" aria-hidden="true">
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(255,255,255,0.92) 0%, rgba(250,251,255,0.86) 100%)" }} />
           </div>
+
+          {/* Sticky header — darker glass strip, animated divider, column
+              labels fade upward, a scanning light sweeps through every 6s,
+              and the connection dot blinks once per newly-arrived row. */}
+          <div className="sticky z-10 rounded-t-[28px] overflow-hidden" style={{ top: LIVE_PAYOUTS_HEADER_STICKY_TOP_PX }}>
+            <div className="relative" style={{ background: "linear-gradient(180deg, rgba(15,23,42,0.05) 0%, rgba(15,23,42,0.02) 100%)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }}>
+              {!prefersReducedMotion && (
+                <motion.div
+                  aria-hidden="true"
+                  className="absolute inset-y-0 w-1/4 pointer-events-none"
+                  style={{ background: "linear-gradient(115deg, transparent, rgba(59,130,246,0.08), transparent)" }}
+                  initial={{ x: LIVE_PAYOUTS_SCAN_LIGHT_INITIAL_X }}
+                  animate={livePayoutsScanLight}
+                  transition={LIVE_PAYOUTS_SCAN_LIGHT_TRANSITION}
+                />
+              )}
+              <div className="relative flex items-center gap-[12px] px-[24px] py-[16px] flex-wrap" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                <span className="relative flex items-center gap-[6px] px-[10px] py-[4px] rounded-full" style={{ background: connectionState === "connected" ? "rgba(34,197,94,0.1)" : "rgba(100,116,139,0.1)" }}>
+                  <motion.span key={blinkTick} className="relative flex size-[8px]" animate={prefersReducedMotion || blinkTick === 0 ? undefined : livePayoutsBadgeBlink} transition={{ duration: LIVE_PAYOUTS_BADGE_BLINK_DURATION_S, ease: "easeOut" }}>
+                    {connectionState === "connected" && (
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-[#22c55e] opacity-75 animate-ping" />
+                    )}
+                    {connectionState !== "connected" && !prefersReducedMotion && (
+                      <motion.span className="absolute inline-flex h-full w-full rounded-full bg-[#64748b]" animate={livePayoutsHeaderDotPulse} transition={LIVE_PAYOUTS_HEADER_DOT_TRANSITION} />
+                    )}
+                    <span className={`relative inline-flex rounded-full size-[8px] ${connectionState === "connected" ? "bg-[#22c55e]" : "bg-[#64748b]"}`} />
+                  </motion.span>
+                  <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[11px] tracking-[1px] uppercase" style={{ color: connectionState === "connected" ? "#15803d" : "#64748b" }}>
+                    {connectionState === "connected" ? "Live" : "Connecting"}
+                  </span>
+                </span>
+                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#0b0c11] text-[15px]">Recent Rewards</p>
+                <span className="hidden sm:block w-px h-[16px]" style={{ background: "rgba(0,0,0,0.1)" }} />
+                <span className="flex items-center gap-[6px] text-[#8a90a3] text-[12px]">
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M8 1.5l5.5 2v4c0 3.5-2.3 6.2-5.5 7-3.2-.8-5.5-3.5-5.5-7v-4l5.5-2Z" stroke="#8a90a3" strokeWidth="1.2" strokeLinejoin="round" /></svg>
+                  Verified reward activity
+                </span>
+                {/* Animated divider — grows left -> right on entrance. */}
+                <motion.div
+                  aria-hidden="true"
+                  className="absolute bottom-0 left-0 h-px origin-left"
+                  style={{ width: "100%", background: "linear-gradient(90deg, rgba(59,130,246,0.35), rgba(59,130,246,0.05))" }}
+                  initial={{ scaleX: 0 }}
+                  whileInView={{ scaleX: 1 }}
+                  viewport={{ once: true }}
+                  transition={LIVE_PAYOUTS_DIVIDER_TRANSITION}
+                />
+              </div>
+              <div className="hidden lg:flex items-center px-[24px] py-[12px] gap-[16px]" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                {[
+                  { kind: "person" as const, label: "Trader", w: "flex-1 min-w-[200px]" },
+                  { kind: "dollar" as const, label: "Reward Amount", w: "flex-1 min-w-[140px]" },
+                  { kind: "shield" as const, label: "Status", w: "flex-1 min-w-[140px]" },
+                  { kind: "clock" as const, label: "Time", w: "w-[80px]" },
+                ].map((col, i) => (
+                  <motion.div
+                    key={col.label}
+                    initial={{ opacity: 0, y: 8 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true }}
+                    transition={{ duration: 0.4, delay: i * LIVE_PAYOUTS_COLUMN_LABEL_STAGGER_S, ease: [0.16, 1, 0.3, 1] }}
+                    className={`${col.w} flex items-center gap-[6px]`}
+                  >
+                    <motion.span initial={{ opacity: 0 }} whileInView={{ opacity: 1 }} viewport={{ once: true }} transition={{ duration: 0.3, delay: i * LIVE_PAYOUTS_COLUMN_LABEL_STAGGER_S }}>
+                      <TableColIcon kind={col.kind} />
+                    </motion.span>
+                    <span className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[#8a90a3] text-[11px] tracking-[1px] uppercase">{col.label}</span>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+          </div>
+
           {records.length === 0 ? (
-            <div className="flex flex-col items-center gap-[10px] px-[20px] py-[56px] text-center rounded-[28px]" style={{ border: "1px solid rgba(0,0,0,0.06)" }}>
+            <div className="relative flex flex-col items-center gap-[10px] px-[20px] py-[56px] text-center">
               <span className="text-[32px]" aria-hidden="true">📭</span>
               <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[14px]">Waiting for certificates…</p>
             </div>
           ) : (
-            <div className="flex flex-col gap-[20px]">
+            <div className="relative">
               <AnimatePresence initial={false}>
                 {records.map((record, i) => (
-                  <RewardCard key={record.name + record.timestamp} record={record} index={i} prefersReducedMotion={prefersReducedMotion} />
+                  <RewardRow key={record.name + record.timestamp} record={record} index={i} prefersReducedMotion={prefersReducedMotion} />
                 ))}
               </AnimatePresence>
             </div>
           )}
-        </div>
+        </motion.div>
 
-        {/* CTA directly below the cards — full width on mobile, premium
-            glass-gradient pill, shimmer sweep every 5s on top of the slow
-            gradient drift, magnetic + lift + stronger glow on hover
-            (magneticStrength + whileHover both come from HeroCta itself,
-            shared/untouched; the wrapper here only adds a slight lift). */}
-        <motion.div className="w-full sm:w-auto" whileHover={prefersReducedMotion ? undefined : { y: -3 }} transition={{ type: "spring", stiffness: 380, damping: 24 }}>
-          <HeroCta
-            href="https://provesrc.com/verified/?src=fundingyourtrades"
-            target="_blank"
-            rel="noopener noreferrer"
-            magneticStrength={0.16}
-            className="group relative flex items-center justify-center gap-[10px] px-[32px] py-[16px] rounded-[999px] shrink-0 no-underline overflow-hidden w-full sm:w-auto transition-shadow duration-300 hover:shadow-[0_16px_50px_-10px_rgba(59,130,246,0.6)]"
-            style={PILL_CTA_GRADIENT_STYLE}
-          >
-            {!prefersReducedMotion && (
-              <motion.div
-                aria-hidden="true"
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: "linear-gradient(120deg, transparent, rgba(255,255,255,0.18), transparent, rgba(96,165,250,0.25), transparent)",
-                  backgroundSize: "300% 300%",
-                }}
-                animate={livePayoutsCtaGradientPosition}
-                transition={{ duration: LIVE_PAYOUTS_CTA_GRADIENT_DURATION_S, repeat: Infinity, ease: "linear" }}
-              />
-            )}
-            {!prefersReducedMotion && (
-              <motion.div
-                aria-hidden="true"
-                className="absolute inset-y-0 w-1/3 pointer-events-none"
-                style={{ background: "linear-gradient(115deg, transparent, rgba(255,255,255,0.4), transparent)" }}
-                initial={{ x: LIVE_PAYOUTS_CTA_SHIMMER_INITIAL_X }}
-                animate={livePayoutsCtaShimmer}
-                transition={LIVE_PAYOUTS_CTA_SHIMMER_TRANSITION}
-              />
-            )}
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" className="relative"><path d="M3 8h14v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V8Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M2 5.5a1.5 1.5 0 0 1 1.5-1.5H10v4H3.5A1.5 1.5 0 0 1 2 6.5v-1Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M18 5.5A1.5 1.5 0 0 0 16.5 4H10v4h6.5A1.5 1.5 0 0 0 18 6.5v-1Z" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /><path d="M10 4v14" stroke="#fff" strokeWidth="1.5" /></svg>
-            <p className="relative font-['Inter:Semi_Bold',sans-serif] font-semibold text-[16px] text-white whitespace-nowrap">Check More Rewards</p>
-          </HeroCta>
+        {/* Button — redesigned: larger (56-60px tall), glass highlight,
+            moving gradient, glow, slow idle float, lift + stronger glow +
+            arrow-slide + magnetic cursor on hover, spring on click
+            (magneticStrength + whileTap/spring both come from HeroCta
+            itself, shared/untouched). */}
+        <motion.div
+          className="w-full sm:w-auto"
+          animate={prefersReducedMotion ? undefined : { y: livePayoutsCtaFloatY }}
+          transition={prefersReducedMotion ? undefined : LIVE_PAYOUTS_CTA_FLOAT_TRANSITION}
+        >
+          <motion.div whileHover={prefersReducedMotion ? undefined : { y: -4 }} transition={{ type: "spring", stiffness: 380, damping: 24 }}>
+            <HeroCta
+              href="https://provesrc.com/verified/?src=fundingyourtrades"
+              target="_blank"
+              rel="noopener noreferrer"
+              magneticStrength={0.16}
+              className="group relative flex items-center justify-center gap-[10px] px-[36px] py-[19px] lg:py-[21px] rounded-[999px] shrink-0 no-underline overflow-hidden w-full sm:w-auto transition-shadow duration-300 hover:shadow-[0_20px_60px_-12px_rgba(59,130,246,0.65)]"
+              style={PILL_CTA_GRADIENT_STYLE}
+            >
+              {/* Glass highlight */}
+              <div aria-hidden="true" className="absolute inset-x-0 top-0 h-1/2 pointer-events-none" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.22), transparent)" }} />
+              {!prefersReducedMotion && (
+                <motion.div
+                  aria-hidden="true"
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background: "linear-gradient(120deg, transparent, rgba(255,255,255,0.18), transparent, rgba(96,165,250,0.25), transparent)",
+                    backgroundSize: "300% 300%",
+                  }}
+                  animate={livePayoutsCtaGradientPosition}
+                  transition={{ duration: LIVE_PAYOUTS_CTA_GRADIENT_DURATION_S, repeat: Infinity, ease: "linear" }}
+                />
+              )}
+              <span className="relative font-['Inter:Semi_Bold',sans-serif] font-semibold text-[16px] lg:text-[17px] text-white whitespace-nowrap">Check More Rewards</span>
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="relative transition-transform duration-300 group-hover:translate-x-[6px]">
+                <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </HeroCta>
+          </motion.div>
         </motion.div>
       </div>
     </div>
