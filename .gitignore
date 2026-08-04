@@ -1,0 +1,7 @@
+/node_modules/
+/plans/
+/docs/
+/dist/
+/.superpowers/
+.DS_Store
+.idea/
