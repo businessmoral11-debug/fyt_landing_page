@@ -39,6 +39,21 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* FYT premium palette — used directly via arbitrary Tailwind values
+     (bg-[--fyt-bg-primary] etc.) and inline styles throughout App.tsx,
+     alongside (not replacing) the shadcn tokens above, which the
+     components/ui/* primitives still read. */
+  --fyt-bg-primary: #050608;
+  --fyt-bg-secondary: #090b11;
+  --fyt-card: rgba(255, 255, 255, 0.04);
+  --fyt-border: rgba(255, 255, 255, 0.08);
+  --fyt-blue: #3b82f6;
+  --fyt-blue-accent: #60a5fa;
+  --fyt-success: #22c55e;
+  --fyt-text: #ffffff;
+  --fyt-text-secondary: #b6bdc9;
+  --fyt-muted: #7c8699;
 }
 
 .dark {
@@ -126,6 +141,10 @@
 
   body {
     @apply bg-background text-foreground;
+    /* The page itself is dark end-to-end (App.tsx's root div is
+       bg-[#070810]); without this, overscroll/rubber-band regions flash the
+       shadcn light-theme --background (white) instead of matching. */
+    background-color: var(--fyt-bg-primary);
   }
 
   /**

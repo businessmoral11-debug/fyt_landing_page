@@ -44,6 +44,10 @@ import { parseCountUpSegments, renderCountUp } from "@/app/countUp";
 import { useLiveRewardsFeed, deriveInitials, timeAgo } from "@/app/liveRewardsFeed";
 import imgDashboardMockup from "@/assets/images/dashboard_floating_3d_v2.png";
 import { motion, useScroll, useTransform, useMotionTemplate, useReducedMotion, useInView, type MotionValue } from "motion/react";
+import { AnimatePresence } from "motion/react";
+import { useMagnetic } from "@/app/magnetic";
+import { useScrollShrink } from "@/app/navScroll";
+import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
 import { useMonotonicProgress } from "@/app/scrollProgress";
 import {
@@ -68,6 +72,7 @@ import {
   type StepReveal,
 } from "@/app/howItWorksReveal";
 import { TESTIMONIAL_PAGES, TESTIMONIAL_FLAT_ITEMS, TESTIMONIAL_VIDEOS, type TestimonialSlideItem, type TestimonialVideo } from "@/app/testimonials";
+import { CursorSpotlight } from "@/app/cursorSpotlight";
 import { type VideoSource, buildYouTubeEmbedUrl, testimonialVideoSource, pricingExplainerVideoSource } from "@/app/videoLightbox";
 import {
   DIFFERENCE_HEADING_WORDS,
@@ -189,14 +194,17 @@ function Links() {
       {NAV_LINKS.items.map((item) =>
         item.type === "dropdown" ? (
           <div key={item.label} className="relative group/affiliate">
-            <p tabIndex={0} className="relative shrink-0 cursor-pointer">{item.label}</p>
+            <p tabIndex={0} className="group/link relative shrink-0 cursor-pointer py-[6px]">
+              {item.label}
+              <span aria-hidden className="absolute left-0 -bottom-px h-px w-full origin-left scale-x-0 bg-[#60a5fa] transition-transform duration-300 ease-out group-hover/link:scale-x-100 group-focus-within/affiliate:scale-x-100" />
+            </p>
             <div className="absolute left-0 top-full pt-[12px] opacity-0 pointer-events-none -translate-y-[4px] group-hover/affiliate:opacity-100 group-hover/affiliate:pointer-events-auto group-hover/affiliate:translate-y-0 group-focus-within/affiliate:opacity-100 group-focus-within/affiliate:pointer-events-auto group-focus-within/affiliate:translate-y-0 transition-all duration-150 z-50">
-              <div className="flex flex-col gap-[4px] bg-[#0a0e1a] border border-[rgba(255,255,255,0.12)] rounded-[8px] p-[8px] min-w-[200px] shadow-[0_12px_32px_rgba(0,0,0,0.45)]">
+              <div className="flex flex-col gap-[4px] bg-[#0a0e1a]/95 backdrop-blur-[16px] border border-[rgba(255,255,255,0.12)] rounded-[12px] p-[8px] min-w-[200px] shadow-[0_16px_40px_rgba(0,0,0,0.5)]">
                 {item.items.map((sub) => (
                   <a
                     key={sub.label}
                     href={sub.href}
-                    className="whitespace-nowrap rounded-[6px] px-[12px] py-[8px] text-[14px] text-[#eef0f6] no-underline hover:bg-[rgba(255,255,255,0.06)] hover:text-[#60a5fa]"
+                    className="whitespace-nowrap rounded-[8px] px-[12px] py-[8px] text-[14px] text-[#eef0f6] no-underline hover:bg-[rgba(255,255,255,0.06)] hover:text-[#60a5fa] transition-colors duration-150"
                   >
                     {sub.label}
                   </a>
@@ -205,8 +213,9 @@ function Links() {
             </div>
           </div>
         ) : (
-          <a key={item.label} href={item.href} className="relative shrink-0 text-[#eef0f6] no-underline hover:text-[#60a5fa]">
+          <a key={item.label} href={item.href} className="group/link relative shrink-0 text-[#eef0f6] no-underline hover:text-[#60a5fa] transition-colors duration-200 py-[6px]">
             {item.label}
+            <span aria-hidden className="absolute left-0 -bottom-px h-px w-full origin-left scale-x-0 bg-[#60a5fa] transition-transform duration-300 ease-out group-hover/link:scale-x-100" />
           </a>
         ),
       )}
@@ -215,20 +224,31 @@ function Links() {
 }
 
 function ButtonPrimaryLg() {
+  const magnet = useMagnetic<HTMLAnchorElement>(0.25);
   return (
-    <a href={NAV_LINKS.buyHere.href} className="bg-[#3b82f6] relative rounded-[8px] shrink-0 no-underline block">
+    <motion.a
+      ref={magnet.ref}
+      href={NAV_LINKS.buyHere.href}
+      onMouseMove={magnet.onMouseMove}
+      onMouseLeave={magnet.onMouseLeave}
+      style={magnet.style}
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 400, damping: 22 }}
+      className="bg-[#3b82f6] relative rounded-[8px] shrink-0 no-underline block"
+    >
       <div className="content-stretch flex items-center overflow-clip px-[20px] py-[12px] relative rounded-[inherit] size-full">
         <p className="[word-break:break-word] font-['Inter:Semi_Bold',sans-serif] font-semibold leading-[normal] not-italic relative shrink-0 text-[14px] text-white whitespace-nowrap">{NAV_LINKS.buyHere.label}</p>
       </div>
       <div aria-hidden className="absolute border border-[rgba(59,130,246,0.32)] border-solid inset-0 pointer-events-none rounded-[8px]" />
-    </a>
+    </motion.a>
   );
 }
 
 function NavRight() {
   return (
     <div className="content-stretch flex gap-[16px] items-center overflow-clip relative shrink-0">
-      <a href={NAV_LINKS.login.href} className="[word-break:break-word] font-['Inter:Regular',sans-serif] font-normal leading-[normal] not-italic relative shrink-0 text-[#60a5fa] text-[14px] whitespace-nowrap no-underline">{NAV_LINKS.login.label}</a>
+      <a href={NAV_LINKS.login.href} className="[word-break:break-word] font-['Inter:Regular',sans-serif] font-normal leading-[normal] not-italic relative shrink-0 text-[#60a5fa] text-[14px] whitespace-nowrap no-underline hover:text-[#93c5fd] transition-colors duration-200">{NAV_LINKS.login.label}</a>
       <ButtonPrimaryLg />
     </div>
   );
@@ -249,65 +269,100 @@ function HamburgerButton({ onClick }: { onClick: () => void }) {
 }
 
 function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
-  if (!open) return null;
+  const reduceMotion = useReducedMotion();
   return (
-    <div className="lg:hidden fixed inset-0 z-50 bg-[#0a0e1a] flex flex-col justify-between px-[24px] pt-[32px] pb-[40px]">
-      {/* Header row */}
-      <div className="flex items-center justify-between">
-        <Wordmark />
-        <button
-          onClick={onClose}
-          aria-label="Close menu"
-          className="flex items-center justify-center size-[40px] rounded-full border border-[rgba(255,255,255,0.25)] bg-transparent cursor-pointer"
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: reduceMotion ? 0 : 0.22 }}
+          className="lg:hidden fixed inset-0 z-50 bg-[#0a0e1a]/95 flex flex-col justify-between px-[24px] pt-[32px] pb-[40px]"
+          style={{ backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)" }}
         >
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M12 4L4 12M4 4L12 12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-      {/* Centered links */}
-      <div className="flex flex-col items-center gap-[8px] overflow-y-auto">
-        {NAV_LINKS.items.map((item) =>
-          item.type === "dropdown" ? (
-            <div key={item.label} className="flex flex-col items-center gap-[4px] py-[8px]">
-              <p className="text-[13px] tracking-[1.44px] text-[#3b82f6] font-['Inter:Regular',sans-serif]">{item.label.toUpperCase()}</p>
-              {item.items.map((sub) => (
-                <a key={sub.label} href={sub.href} className="py-[8px] text-[16px] text-center text-white font-['Inter:Regular',sans-serif] no-underline">
-                  {sub.label}
+          <motion.div
+            initial={reduceMotion ? false : { y: -16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={reduceMotion ? undefined : { y: -16, opacity: 0 }}
+            transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className="flex flex-col justify-between h-full"
+          >
+          {/* Header row */}
+          <div className="flex items-center justify-between">
+            <Wordmark />
+            <button
+              onClick={onClose}
+              aria-label="Close menu"
+              className="flex items-center justify-center size-[40px] rounded-full border border-[rgba(255,255,255,0.25)] bg-transparent cursor-pointer transition-colors duration-200 hover:bg-[rgba(255,255,255,0.08)]"
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M12 4L4 12M4 4L12 12" stroke="white" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          </div>
+          {/* Centered links */}
+          <div className="flex flex-col items-center gap-[8px] overflow-y-auto">
+            {NAV_LINKS.items.map((item) =>
+              item.type === "dropdown" ? (
+                <div key={item.label} className="flex flex-col items-center gap-[4px] py-[8px]">
+                  <p className="text-[13px] tracking-[1.44px] text-[#3b82f6] font-['Inter:Regular',sans-serif]">{item.label.toUpperCase()}</p>
+                  {item.items.map((sub) => (
+                    <a key={sub.label} href={sub.href} className="py-[8px] text-[16px] text-center text-white font-['Inter:Regular',sans-serif] no-underline">
+                      {sub.label}
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <a key={item.label} href={item.href} className="py-[12px] text-[18px] text-center text-white font-['Inter:Regular',sans-serif] no-underline">
+                  {item.label}
                 </a>
-              ))}
-            </div>
-          ) : (
-            <a key={item.label} href={item.href} className="py-[12px] text-[18px] text-center text-white font-['Inter:Regular',sans-serif] no-underline">
-              {item.label}
+              ),
+            )}
+          </div>
+          {/* Bottom actions */}
+          <div className="flex flex-col items-center gap-[20px]">
+            <a href={NAV_LINKS.login.href} className="text-[16px] text-[#3b82f6] font-['Inter:Regular',sans-serif] no-underline">{NAV_LINKS.login.label}</a>
+            <a href={NAV_LINKS.buyHere.href} onClick={onClose} className="bg-[#3b82f6] w-full rounded-[8px] py-[16px] flex items-center justify-center no-underline transition-transform duration-200 active:scale-[0.98]">
+              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[16px] text-white">{NAV_LINKS.buyHere.label}</p>
             </a>
-          ),
-        )}
-      </div>
-      {/* Bottom actions */}
-      <div className="flex flex-col items-center gap-[20px]">
-        <a href={NAV_LINKS.login.href} className="text-[16px] text-[#3b82f6] font-['Inter:Regular',sans-serif] no-underline">{NAV_LINKS.login.label}</a>
-        <a href={NAV_LINKS.buyHere.href} onClick={onClose} className="bg-[#3b82f6] w-full rounded-[8px] py-[16px] flex items-center justify-center no-underline">
-          <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[16px] text-white">{NAV_LINKS.buyHere.label}</p>
-        </a>
-        <div className="h-[4px] w-[134px] rounded-full bg-[rgba(255,255,255,0.3)]" />
-      </div>
-    </div>
+            <div className="h-[4px] w-[134px] rounded-full bg-[rgba(255,255,255,0.3)]" />
+          </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
 function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const scrolled = useScrollShrink(24);
   return (
-    <div className="h-[64px] lg:h-[72px] relative shrink-0 w-full">
-      <div className="flex flex-row items-center rounded-[inherit] size-full">
-        <div className="content-stretch flex items-center justify-between px-[20px] lg:pl-[83px] lg:pr-[88px] relative size-full">
-          <Brand />
-          <Links />
-          {/* Desktop right cluster */}
-          <div className="hidden lg:flex"><NavRight /></div>
-          {/* Mobile: hamburger only — Log in + Start evaluation live in the overlay */}
-          <HamburgerButton onClick={() => setMenuOpen(true)} />
+    <div className="sticky top-0 z-40 w-full">
+      <div className={`px-[12px] lg:px-[24px] transition-[padding] duration-300 ease-out ${scrolled ? "pt-[8px]" : "pt-[16px]"}`}>
+        <div
+          className={`mx-auto max-w-[1280px] rounded-[20px] border transition-[background-color,border-color,box-shadow] duration-300 ease-out ${
+            scrolled
+              ? "bg-[rgba(9,11,17,0.72)] border-[rgba(255,255,255,0.1)] shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+              : "bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] shadow-none"
+          }`}
+          style={{ backdropFilter: "blur(18px)", WebkitBackdropFilter: "blur(18px)" }}
+        >
+          <div
+            className={`flex flex-row items-center rounded-[inherit] size-full transition-[height] duration-300 ease-out ${
+              scrolled ? "h-[56px] lg:h-[60px]" : "h-[64px] lg:h-[72px]"
+            }`}
+          >
+            <div className="content-stretch flex items-center justify-between px-[20px] lg:pl-[28px] lg:pr-[24px] relative size-full">
+              <Brand />
+              <Links />
+              {/* Desktop right cluster */}
+              <div className="hidden lg:flex"><NavRight /></div>
+              {/* Mobile: hamburger only — Log in + Start evaluation live in the overlay */}
+              <HamburgerButton onClick={() => setMenuOpen(true)} />
+            </div>
+          </div>
         </div>
       </div>
       <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
@@ -704,6 +759,12 @@ function HeroBackground() {
     <div className="absolute inset-0 overflow-hidden pointer-events-none bg-black" aria-hidden>
       <style>{HERO_SWEEP_CSS}</style>
 
+      {/* Ambient 3D particle/glow layer — desktop + motion-allowed only (see
+          HeroSceneGate); renders nothing on mobile or under reduced-motion, in
+          which case the orbital stage below is the whole scene, same as
+          before this layer existed. */}
+      <HeroSceneGate />
+
       {/* Fixed 1440×1080 stage centered horizontally; scene coords are spec px */}
       <div className="absolute left-1/2 top-0 hidden lg:block" style={{ width: 1440, height: 1080, transform: "translateX(-50%)" }}>
         <HeroStage />
@@ -720,6 +781,62 @@ function HeroBackground() {
   );
 }
 
+// Splits `text` into words, each rising up from behind its own clipped mask
+// on mount — a restrained "premium" reveal (no per-letter chaos) that still
+// reads as considered rather than a plain fade. Renders the plain text
+// statically under reduced motion. Purely a presentation wrapper around
+// whatever string it's given — callers still control the actual copy (e.g.
+// Hero still reads HERO_CONTENT.headlineBlue, not a hardcoded value).
+function RevealWords({ text }: { text: string }) {
+  const reduceMotion = useReducedMotion();
+  if (reduceMotion) return <>{text}</>;
+  const words = text.split(" ");
+  return (
+    <>
+      {words.map((word, i) => (
+        <span key={i} className="inline-block overflow-hidden align-top pb-[0.1em] -mb-[0.1em]">
+          <motion.span
+            className="inline-block"
+            initial={{ y: "115%", opacity: 0 }}
+            animate={{ y: "0%", opacity: 1 }}
+            transition={{ duration: 0.65, delay: 0.1 + i * 0.055, ease: [0.16, 1, 0.3, 1] }}
+          >
+            {word}
+            {i < words.length - 1 ? " " : ""}
+          </motion.span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+// Shared by both Hero CTAs — magnetic pointer-follow, a soft glow that ramps
+// in on hover, and a spring-based press scale. `magnetic` strength is lower
+// on the secondary (glassy) button so it reads as clearly less dominant than
+// the primary gradient pill.
+function HeroCta({
+  href, magneticStrength, children, style, className,
+}: {
+  href: string; magneticStrength: number; children: ReactNode; style?: React.CSSProperties; className: string;
+}) {
+  const magnet = useMagnetic<HTMLAnchorElement>(magneticStrength);
+  return (
+    <motion.a
+      ref={magnet.ref}
+      href={href}
+      onMouseMove={magnet.onMouseMove}
+      onMouseLeave={magnet.onMouseLeave}
+      style={{ ...style, x: magnet.style.x, y: magnet.style.y }}
+      whileHover={{ scale: 1.035 }}
+      whileTap={{ scale: 0.97 }}
+      transition={{ type: "spring", stiffness: 380, damping: 24 }}
+      className={className}
+    >
+      {children}
+    </motion.a>
+  );
+}
+
 function Hero() {
   return (
     <div className="bg-black relative flex flex-col items-center overflow-hidden shrink-0 w-full min-h-[620px] lg:h-[1080px] py-[64px] lg:py-0">
@@ -727,58 +844,83 @@ function Hero() {
       {/* Content — centered; on desktop pinned into the upper band per spec (top 130, h 496) */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-[20px] lg:px-[88px] w-full lg:absolute lg:top-[130px] lg:h-[496px]">
         {/* Trust Index rating badge — PDF section 1, above the headline */}
-        <div className="flex flex-wrap justify-center max-w-full gap-[10px] items-center bg-white rounded-[999px] pl-[16px] pr-[20px] py-[8px] shrink-0">
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden="true">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-wrap justify-center max-w-full gap-[10px] items-center bg-white rounded-[999px] pl-[16px] pr-[20px] py-[8px] shrink-0"
+        >
+          <motion.svg
+            width="14" height="14" viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden="true"
+            animate={{ scale: [1, 1.18, 1] }}
+            transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
+          >
             <path d="M8 1l2.1 4.3 4.7.7-3.4 3.3.8 4.7L8 11.7l-4.2 2.3.8-4.7L1.2 6l4.7-.7L8 1Z" fill="#16A34A" />
-          </svg>
+          </motion.svg>
           <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[13px] text-[#0b0c11] whitespace-nowrap">Trust Index</p>
           <div className="flex gap-[2px] items-center shrink-0">
             {[0, 1, 2, 3, 4].map((i) => (
-              <svg key={i} width="13" height="13" viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden="true">
+              <motion.svg
+                key={i} width="13" height="13" viewBox="0 0 16 16" fill="none" className="shrink-0" aria-hidden="true"
+                animate={{ scale: [1, 1.18, 1] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut", delay: 0.12 * i }}
+              >
                 <rect width="16" height="16" rx="3" fill="#16A34A" />
                 <path d="M8 3.2l1.4 2.9 3.2.5-2.3 2.2.5 3.2L8 10.5l-2.8 1.5.5-3.2-2.3-2.2 3.2-.5L8 3.2Z" fill="#fff" />
-              </svg>
+              </motion.svg>
             ))}
           </div>
           <p className="font-['Inter:Regular',sans-serif] font-normal text-[13px] text-[#6b7280]">{HERO_RATING.score} rating • {HERO_RATING.reviews} reviews</p>
-        </div>
+        </motion.div>
         <div className="h-[20px] lg:h-[24px] shrink-0" />
         <h1
           className="font-['DM_Sans',sans-serif] font-medium text-[44px] lg:text-[80px] w-full lg:max-w-[1264px]"
           style={{ lineHeight: "104%", letterSpacing: "-0.025em", textShadow: "0px 2px 36px rgba(0,0,0,0.45)" }}
         >
           {/* Design spec capitalizes "Without" — HERO_CONTENT.headlineMain (live-site manifest, lowercase "without") is correct as a record of the live site but not used for this specific render */}
-          <span className="block text-white">Trade Without Hidden Rules.</span>
-          <span className="block text-[#60a5fa]">{HERO_CONTENT.headlineBlue}</span>
+          <span className="block text-white"><RevealWords text="Trade Without Hidden Rules." /></span>
+          <span className="block text-[#60a5fa]" style={{ textShadow: "0 0 42px rgba(96,165,250,0.5)" }}><RevealWords text={HERO_CONTENT.headlineBlue} /></span>
         </h1>
         <div className="h-[16px] lg:h-[32px] shrink-0" />
-        <p className="font-['Inter:Regular',sans-serif] font-normal not-italic text-[#a6acbe] text-[16px] leading-[1.6] w-full lg:w-[760px]">
+        <motion.p
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="font-['Inter:Regular',sans-serif] font-normal not-italic text-[#a6acbe] text-[16px] leading-[1.6] w-full lg:w-[760px]"
+        >
           Zero rule during the evaluation phases, pass however you want.
-        </p>
+        </motion.p>
         <div className="h-[28px] lg:h-[48px] shrink-0" />
-        <div className="flex flex-col lg:flex-row gap-[12px] lg:gap-[16px] items-stretch lg:items-center shrink-0 w-full lg:w-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, delay: 0.62, ease: [0.16, 1, 0.3, 1] }}
+          className="flex flex-col lg:flex-row gap-[12px] lg:gap-[16px] items-stretch lg:items-center shrink-0 w-full lg:w-auto"
+        >
           {/* Primary — gradient pill, PDF label "View Programs" */}
-          <a
+          <HeroCta
             href={HERO_CONTENT.ctaPrimary.href}
+            magneticStrength={0.22}
             className="flex justify-center gap-[10px] items-center pl-[32px] pr-[28px] py-[16px] relative rounded-[999px] shrink-0"
-            style={PILL_CTA_GRADIENT_STYLE}
+            style={{ ...PILL_CTA_GRADIENT_STYLE, boxShadow: `${PILL_CTA_GRADIENT_STYLE.boxShadow}, 0 0 0 rgba(59,130,246,0)` }}
           >
             <div aria-hidden className="absolute border border-[rgba(156,196,255,0.35)] border-solid inset-0 pointer-events-none rounded-[999px]" />
             <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold not-italic text-[16px] text-white whitespace-nowrap">View Programs</p>
             <svg className="shrink-0" width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
-          </a>
+          </HeroCta>
           {/* Secondary — glassy pill, PDF label "See How It Works" */}
-          <a
+          <HeroCta
             href="#how-it-works"
+            magneticStrength={0.16}
             className="flex justify-center items-center px-[32px] py-[16px] relative rounded-[999px] shrink-0 backdrop-blur-[7px]"
             style={{ background: "rgba(255,255,255,0.05)" }}
           >
             <div aria-hidden className="absolute border border-[rgba(255,255,255,0.18)] border-solid inset-0 pointer-events-none rounded-[999px]" />
             <p className="font-['Inter:Medium',sans-serif] font-medium not-italic text-[16px] text-[#e8ebf2] whitespace-nowrap">See How It Works</p>
-          </a>
-        </div>
+          </HeroCta>
+        </motion.div>
         {/* Screen-reader-only mirror of the 5 radar labels — HeroStage (which
             renders them visually) lives inside HeroBackground's aria-hidden
             root, so without this list these product-feature claims would be
@@ -2940,6 +3082,7 @@ function Footer() {
 export default function App() {
   return (
     <div className="bg-[#070810] content-stretch flex flex-col items-start relative w-full min-h-screen">
+      <CursorSpotlight />
       <PromoBanner />
       <Nav />
       <Hero />
