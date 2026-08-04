@@ -1704,6 +1704,13 @@ function ClosingCta() {
 
 // ─── PRICING ──────────────────────────────────────────────────────────────────
 
+// Barely-there fractal-noise grain, tiled behind the whole configurator —
+// keeps its large glass panels from reading as flat/sterile without being
+// visible as "texture" on its own. Pure CSS background-image, no runtime
+// cost.
+const PRICING_NOISE_BG =
+  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")";
+
 const STEP_DISPLAY_LABELS: Record<StepId, string> = {
   "1-Step": "1 Step",
   "2-Step": "2 Step",
@@ -1748,11 +1755,51 @@ const MOBILE_PANEL_TABS: { id: MobilePanelTab; label: string }[] = [
   { id: "why", label: "Why traders choose this" },
 ];
 
+// Glass card with hover elevation and a soft directional glow that fades in
+// on hover — the shared shell behind all 4 results-panel cards. `className`
+// stays exactly the layout-visibility class each call site already passes
+// ("flex" / "hidden sm:flex" / "flex sm:hidden"); only the presentation
+// layer inside changed.
 function PanelCard({ children, className }: { children: ReactNode; className: string }) {
   return (
-    <div className={`${className} flex-col gap-[16px] rounded-[16px] p-[24px]`} style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.02)" }}>
-      {children}
-    </div>
+    <motion.div
+      className={`${className} group flex-col rounded-[16px] relative`}
+      style={{ border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 20px 44px -20px rgba(0,0,0,0.5)" }}
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: "-60px" }}
+      whileHover={{ y: -4, borderColor: "rgba(59,130,246,0.35)", boxShadow: "0 28px 56px -20px rgba(0,0,0,0.55)" }}
+      transition={{ type: "spring", stiffness: 300, damping: 24 }}
+    >
+      {/* Everything decorative lives in its own overflow-hidden layer,
+          separate from the card's own box — clipping the outer motion.div
+          directly would also clip ITS OWN box-shadow (the hover-elevation
+          shadow above), a classic overflow-hidden gotcha. */}
+      <div className="absolute inset-0 rounded-[16px] overflow-hidden pointer-events-none" aria-hidden="true">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: "linear-gradient(165deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 40%, rgba(255,255,255,0.02) 100%)",
+            backdropFilter: "blur(16px)",
+            WebkitBackdropFilter: "blur(16px)",
+          }}
+        />
+        {/* Glass reflection — a static diagonal sheen near the top edge, the
+            same trick real glass/acrylic panels use, plus a hairline of soft
+            blue edge light along the top border. */}
+        <div className="absolute inset-x-0 top-0 h-[80px]" style={{ background: "linear-gradient(180deg, rgba(255,255,255,0.09) 0%, rgba(255,255,255,0) 100%)" }} />
+        <div className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent 0%, rgba(96,165,250,0.5) 50%, transparent 100%)" }} />
+        {/* Hover glow — driven by the card's own `group` hover state via CSS,
+            not a nested whileHover (a nested pointer-events-none element can
+            never receive its own hover events — the pointer just passes
+            through it to whatever's underneath). */}
+        <div
+          className="absolute -inset-px opacity-0 transition-opacity duration-400 group-hover:opacity-100"
+          style={{ background: "radial-gradient(160px circle at 50% 0%, rgba(59,130,246,0.28), transparent 70%)" }}
+        />
+      </div>
+      <div className="relative flex flex-col gap-[16px] p-[24px]">{children}</div>
+    </motion.div>
   );
 }
 
@@ -1796,6 +1843,8 @@ function Pricing() {
   const [showExplainerVideo, setShowExplainerVideo] = useState(false);
   const closeExplainerVideo = useCallback(() => setShowExplainerVideo(false), []);
   const [mobilePanelTab, setMobilePanelTab] = useState<MobilePanelTab>("rules");
+  const checkoutMagnet = useMagnetic<HTMLDivElement>(0.2);
+  const reduceMotion = useReducedMotion();
 
   const entry = getEntry(step, plan, platform, size)!;
   const planLabel = STEP_PLANS[step].find((p) => p.id === plan)?.label ?? "";
@@ -1854,37 +1903,59 @@ function Pricing() {
 
   return (
     <div id="challenge" className="relative shrink-0 w-full">
-      <div className="overflow-clip rounded-[inherit] size-full">
+      <div className="overflow-clip rounded-[inherit] size-full relative">
+        {/* Ambient backdrop — two slow-drifting glows plus a barely-visible
+            grain layer, purely decorative (aria-hidden, pointer-events-none)
+            and sitting behind every interactive element below. */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <AmbientBlob className="left-[4%] top-[6%]" color="rgba(59,130,246,0.1)" size={580} duration={27} />
+          <AmbientBlob className="right-[6%] bottom-[10%]" color="rgba(96,165,250,0.07)" size={460} duration={22} />
+          <div className="absolute inset-0 opacity-[0.035] mix-blend-overlay" style={{ backgroundImage: PRICING_NOISE_BG }} />
+        </div>
         <div className="content-stretch flex flex-col gap-[32px] lg:gap-[48px] items-start px-[20px] py-[48px] lg:px-[88px] lg:py-[140px] relative size-full">
           <div className="flex flex-col lg:flex-row gap-[24px] lg:gap-[32px] items-start lg:items-center w-full">
-            <div className="flex-1 flex flex-col gap-[12px] items-start">
+            <motion.div
+              initial={{ opacity: 0, y: 18 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, margin: "-80px" }}
+              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="flex-1 flex flex-col gap-[12px] items-start"
+            >
               <p className="font-['DM_Sans',sans-serif] font-medium leading-[1.1] text-[#eef0f6] text-[32px] lg:text-[44px] tracking-[-0.792px]">
                 Find the right challenge
                 <br />
                 <span className="text-[#eef0f6]">in </span>
-                <span className="text-[#3b82f6]">under a minute.</span>
+                <span className="text-[#3b82f6]" style={{ textShadow: "0 0 30px rgba(59,130,246,0.35)" }}>under a minute.</span>
               </p>
               <p className="font-['Inter:Regular',sans-serif] font-normal leading-[1.6] text-[#9da2b4] text-[16px] lg:text-[18px]">Pick a model, compare essentials, and start with clarity.</p>
-            </div>
+            </motion.div>
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); setShowExplainerVideo(true); }}
-              className="flex items-center gap-[14px] px-[16px] py-[14px] rounded-[12px] shrink-0 no-underline w-full lg:w-[300px] relative overflow-hidden"
+              className="flex items-center gap-[14px] px-[16px] py-[14px] rounded-[12px] shrink-0 no-underline w-full lg:w-[300px] relative overflow-hidden transition-[border-color,transform] duration-300 hover:border-[rgba(59,130,246,0.4)] hover:-translate-y-[2px]"
               style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}
             >
-              <div
+              <motion.div
                 className="flex items-center justify-center rounded-full size-[44px] shrink-0"
-                style={{ border: "1.5px solid #3b82f6", background: "rgba(59,130,246,0.08)", boxShadow: "0 0 12px rgba(59,130,246,0.65)" }}
+                style={{ border: "1.5px solid #3b82f6", background: "rgba(59,130,246,0.08)" }}
+                animate={reduceMotion ? undefined : { boxShadow: ["0 0 12px rgba(59,130,246,0.5)", "0 0 20px rgba(59,130,246,0.85)", "0 0 12px rgba(59,130,246,0.5)"] }}
+                transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
               >
                 <svg width="14" height="16" viewBox="0 0 14 16" fill="none" className="ml-[2px]"><path d="M1 1L13 8L1 15V1Z" fill="white" /></svg>
-              </div>
+              </motion.div>
               <div className="flex flex-col gap-[2px]">
                 <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-white text-[14px]">See how it works</p>
                 <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px]">2 min video</p>
               </div>
               <div className="hidden lg:flex items-end gap-[3px] absolute right-[16px] bottom-[14px] h-[28px]" aria-hidden="true">
                 {[6, 12, 18, 24, 14, 20, 10].map((h, i) => (
-                  <div key={i} className="w-[3px] rounded-full" style={{ height: `${h}px`, background: "rgba(59,130,246,0.35)" }} />
+                  <motion.div
+                    key={i}
+                    className="w-[3px] rounded-full"
+                    style={{ height: `${h}px`, background: "rgba(59,130,246,0.35)" }}
+                    animate={reduceMotion ? undefined : { height: [`${h}px`, `${Math.max(4, h - 10)}px`, `${h}px`] }}
+                    transition={{ duration: 1 + (i % 3) * 0.3, repeat: Infinity, ease: "easeInOut", delay: i * 0.08 }}
+                  />
                 ))}
               </div>
             </button>
@@ -1904,23 +1975,38 @@ function Pricing() {
                         key={id}
                         onClick={() => handleStepChange(id)}
                         aria-pressed={active}
-                        className="flex-1 flex items-center justify-center gap-[8px] py-[12px] cursor-pointer rounded-[10px]"
+                        className="relative flex-1 flex items-center justify-center gap-[8px] py-[12px] cursor-pointer rounded-[10px] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
                         style={{
-                          background: active ? "rgba(59,130,246,0.1)" : "transparent",
-                          border: active ? "1px solid #3b82f6" : "1px solid transparent",
-                          boxShadow: active ? "0 0 10px rgba(59,130,246,0.55)" : "none",
                           ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                         }}
                       >
-                        <span style={{ color: active ? "#3b82f6" : "#9da2b4" }}><SelectorIcon kind={STEP_ICONS[id]} /></span>
-                        <span className="font-['Inter:Medium',sans-serif] font-medium text-[14px]" style={{ color: active ? "#eef0f6" : "#9da2b4" }}>{STEP_DISPLAY_LABELS[id]}</span>
+                        {/* Shared layoutId — Framer Motion animates this pill sliding
+                            from the previously-active button to this one instead of
+                            popping, the "Apple configurator" morph effect. */}
+                        {active && (
+                          <motion.div
+                            layoutId="pricing-model-pill"
+                            className="absolute inset-0 rounded-[10px]"
+                            style={{ background: "rgba(59,130,246,0.1)", border: "1px solid #3b82f6" }}
+                            animate={reduceMotion ? undefined : { boxShadow: ["0 0 10px rgba(59,130,246,0.45)", "0 0 16px rgba(59,130,246,0.75)", "0 0 10px rgba(59,130,246,0.45)"] }}
+                            transition={{ layout: { type: "spring", stiffness: 500, damping: 35 }, boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                          />
+                        )}
+                        <span className="relative z-[1]" style={{ color: active ? "#3b82f6" : "#9da2b4" }}><SelectorIcon kind={STEP_ICONS[id]} /></span>
+                        <span className="relative z-[1] font-['Inter:Medium',sans-serif] font-medium text-[14px]" style={{ color: active ? "#eef0f6" : "#9da2b4" }}>{STEP_DISPLAY_LABELS[id]}</span>
                       </button>
                     );
                   })}
                 </div>
               </div>
 
-              <div className="hidden lg:block w-px" style={{ background: "rgba(255,255,255,0.1)" }} aria-hidden />
+              <motion.div
+                className="hidden lg:block w-px"
+                style={{ background: "linear-gradient(180deg, transparent 0%, rgba(96,165,250,0.35) 50%, transparent 100%)" }}
+                animate={reduceMotion ? undefined : { opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                aria-hidden
+              />
 
               <div className="flex-1 flex flex-col gap-[12px]">
                 <p className="sr-only lg:not-sr-only lg:static font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[13px]" id="type-group-label">2. Choose your type</p>
@@ -1934,23 +2020,29 @@ function Pricing() {
                         key={opt.id}
                         onClick={() => setPlan(opt.id)}
                         aria-pressed={active}
-                        className="flex-1 flex flex-col items-center justify-center gap-[2px] py-[10px] cursor-pointer rounded-[10px]"
+                        className="relative flex-1 flex flex-col items-center justify-center gap-[2px] py-[10px] cursor-pointer rounded-[10px] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
                         style={{
-                          background: active ? "rgba(59,130,246,0.1)" : "transparent",
-                          border: active ? "1px solid #3b82f6" : "1px solid transparent",
-                          boxShadow: active ? "0 0 10px rgba(59,130,246,0.55)" : "none",
                           color: active ? "#3b82f6" : "#9da2b4",
                           ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                         }}
                       >
-                        <span className="flex items-center gap-[8px]">
+                        {active && (
+                          <motion.div
+                            layoutId="pricing-type-pill"
+                            className="absolute inset-0 rounded-[10px]"
+                            style={{ background: "rgba(59,130,246,0.1)", border: "1px solid #3b82f6" }}
+                            animate={reduceMotion ? undefined : { boxShadow: ["0 0 10px rgba(59,130,246,0.45)", "0 0 16px rgba(59,130,246,0.75)", "0 0 10px rgba(59,130,246,0.45)"] }}
+                            transition={{ layout: { type: "spring", stiffness: 500, damping: 35 }, boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                          />
+                        )}
+                        <span className="relative z-[1] flex items-center gap-[8px]">
                           <SelectorIcon kind={PLAN_ICONS[opt.id]} />
                           <span className="font-['Inter:Medium',sans-serif] font-medium text-[14px]">{opt.label}</span>
                         </span>
                         {flag && (
                           // Amber accent + pill, deliberately distinct from the blue active/selection state so the badge doesn't blend into it.
                           <span
-                            className="font-['Inter:Bold',sans-serif] font-bold text-[10px] leading-[12px] tracking-[0.4px] uppercase whitespace-nowrap px-[6px] py-[2px] rounded-full"
+                            className="relative z-[1] font-['Inter:Bold',sans-serif] font-bold text-[10px] leading-[12px] tracking-[0.4px] uppercase whitespace-nowrap px-[6px] py-[2px] rounded-full"
                             style={{ color: "#f59e0b", background: "rgba(245,158,11,0.12)" }}
                           >
                             {flag}
@@ -1962,7 +2054,13 @@ function Pricing() {
                 </div>
               </div>
 
-              <div className="hidden lg:block w-px" style={{ background: "rgba(255,255,255,0.1)" }} aria-hidden />
+              <motion.div
+                className="hidden lg:block w-px"
+                style={{ background: "linear-gradient(180deg, transparent 0%, rgba(96,165,250,0.35) 50%, transparent 100%)" }}
+                animate={reduceMotion ? undefined : { opacity: [0.5, 1, 0.5] }}
+                transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+                aria-hidden
+              />
 
               <div className="flex-1 flex flex-col gap-[12px]">
                 <p className="sr-only lg:not-sr-only lg:static font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[13px]" id="platform-group-label">3. Choose your platform</p>
@@ -1975,15 +2073,21 @@ function Pricing() {
                         key={opt.id}
                         onClick={() => setPlatform(opt.id)}
                         aria-pressed={active}
-                        className="flex-1 flex items-center justify-center py-[12px] cursor-pointer rounded-[10px]"
+                        className="relative flex-1 flex items-center justify-center py-[12px] cursor-pointer rounded-[10px] transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
                         style={{
-                          background: active ? "rgba(59,130,246,0.1)" : "transparent",
-                          border: active ? "1px solid #3b82f6" : "1px solid transparent",
-                          boxShadow: active ? "0 0 10px rgba(59,130,246,0.55)" : "none",
                           ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                         }}
                       >
-                        <span className="font-['Inter:Medium',sans-serif] font-medium text-[14px]" style={{ color: active ? "#eef0f6" : "#9da2b4" }}>{opt.label}</span>
+                        {active && (
+                          <motion.div
+                            layoutId="pricing-platform-pill"
+                            className="absolute inset-0 rounded-[10px]"
+                            style={{ background: "rgba(59,130,246,0.1)", border: "1px solid #3b82f6" }}
+                            animate={reduceMotion ? undefined : { boxShadow: ["0 0 10px rgba(59,130,246,0.45)", "0 0 16px rgba(59,130,246,0.75)", "0 0 10px rgba(59,130,246,0.45)"] }}
+                            transition={{ layout: { type: "spring", stiffness: 500, damping: 35 }, boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                          />
+                        )}
+                        <span className="relative z-[1] font-['Inter:Medium',sans-serif] font-medium text-[14px]" style={{ color: active ? "#eef0f6" : "#9da2b4" }}>{opt.label}</span>
                       </button>
                     );
                   })}
@@ -2001,15 +2105,21 @@ function Pricing() {
                       key={value}
                       onClick={() => setSize(value)}
                       aria-pressed={active}
-                      className="flex-1 flex items-center justify-center py-[12px] rounded-[10px] cursor-pointer"
-                      style={{
-                        background: active ? "rgba(59,130,246,0.12)" : "transparent",
-                        border: active ? "1px solid #3b82f6" : "1px solid rgba(255,255,255,0.1)",
-                        boxShadow: active ? "0 0 10px rgba(59,130,246,0.55)" : "none",
-                      }}
+                      className="relative flex-1 flex items-center justify-center py-[12px] rounded-[10px] cursor-pointer transition-transform duration-200 hover:scale-[1.02] active:scale-[0.96]"
                     >
+                      {active ? (
+                        <motion.div
+                          layoutId="pricing-size-pill"
+                          className="absolute inset-0 rounded-[10px]"
+                          style={{ background: "rgba(59,130,246,0.12)", border: "1px solid #3b82f6" }}
+                          animate={reduceMotion ? undefined : { boxShadow: ["0 0 10px rgba(59,130,246,0.45)", "0 0 16px rgba(59,130,246,0.75)", "0 0 10px rgba(59,130,246,0.45)"] }}
+                          transition={{ layout: { type: "spring", stiffness: 500, damping: 35 }, boxShadow: { duration: 2.2, repeat: Infinity, ease: "easeInOut" } }}
+                        />
+                      ) : (
+                        <div aria-hidden className="absolute inset-0 rounded-[10px] pointer-events-none" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                      )}
                       <p
-                        className={`font-['Inter:${active ? "Medium" : "Regular"}',sans-serif] font-${active ? "medium" : "normal"} text-[14px] whitespace-nowrap`}
+                        className={`relative z-[1] font-['Inter:${active ? "Medium" : "Regular"}',sans-serif] font-${active ? "medium" : "normal"} text-[14px] whitespace-nowrap`}
                         style={{ color: active ? "#3b82f6" : "#9da2b4" }}
                       >
                         {fmtSize(value)}
@@ -2038,23 +2148,74 @@ function Pricing() {
                 ].map(([icon, k, v]) => (
                   <div key={k} className="flex items-center justify-between py-[10px]" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <span className="flex items-center gap-[8px] text-[#60a5fa]"><PanelIcon kind={icon} /><span className="font-['Inter:Regular',sans-serif] font-normal text-[14px]">{k}</span></span>
-                    <span className="font-['Inter:Medium',sans-serif] font-medium text-[#eef0f6] text-[14px]">{v}</span>
+                    <span className="relative inline-grid overflow-hidden">
+                      <motion.span
+                        key={v}
+                        initial={{ opacity: 0, y: -8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                        className="font-['Inter:Medium',sans-serif] font-medium text-[#eef0f6] text-[14px] [grid-area:1/1]"
+                      >
+                        {v}
+                      </motion.span>
+                    </span>
                   </div>
                 ))}
               </div>
+              {/* Price — each digit change pops in fresh (key={value} remounts the
+                  motion.p) instead of snapping, the "smooth number morphing" the
+                  redesign calls for. The literal `${entry.priceOld.toFixed(2)}` /
+                  `entry.priceNew.toFixed(2)` expressions are untouched — same
+                  values, same formatting, only the transition wrapping them is new. */}
               <div className="flex flex-col items-center text-center gap-[4px] mt-[4px]">
                 <p className="font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[12px]">One-time fee</p>
                 {entry.priceOld > entry.priceNew && (
-                  <p className="font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[14px] line-through">${entry.priceOld.toFixed(2)}</p>
+                  <motion.p
+                    key={entry.priceOld}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.25 }}
+                    className="font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[14px] line-through"
+                  >${entry.priceOld.toFixed(2)}</motion.p>
                 )}
-                <p className="font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[36px] tracking-[-0.8px]">${entry.priceNew.toFixed(2)}</p>
+                <motion.p
+                  key={entry.priceNew}
+                  initial={{ opacity: 0, y: -10, scale: 0.94 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: "spring", stiffness: 380, damping: 26 }}
+                  className="font-['DM_Sans',sans-serif] font-medium text-[#3b82f6] text-[36px] tracking-[-0.8px]"
+                  style={{ textShadow: "0 0 24px rgba(59,130,246,0.35)" }}
+                >${entry.priceNew.toFixed(2)}</motion.p>
               </div>
-              <a href={checkoutUrl(entry.productId)} className="bg-[#3b82f6] rounded-[6px] shrink-0 w-full block no-underline">
-                <div className="flex items-center justify-center gap-[8px] py-[13px]">
-                  <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] text-white">Start Challenge</p>
-                  <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                </div>
-              </a>
+              {/* Magnetic wrapper — the <a> itself keeps its plain href/className
+                  so checkout behavior and the product-id link are exactly what
+                  they were; the pointer-follow + glow live on this parent only. */}
+              <motion.div
+                ref={checkoutMagnet.ref}
+                onMouseMove={checkoutMagnet.onMouseMove}
+                onMouseLeave={checkoutMagnet.onMouseLeave}
+                style={checkoutMagnet.style}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 380, damping: 24 }}
+                className="group relative w-full rounded-[6px]"
+              >
+                {/* CSS group-hover, not whileHover — this glow sits under the
+                    anchor and is pointer-events-none, so it can never receive
+                    its own hover events; it has to react to the wrapper's
+                    hover state instead. */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 rounded-[6px] pointer-events-none opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                  style={{ background: "radial-gradient(140px circle at 50% 0%, rgba(255,255,255,0.4), transparent 70%)" }}
+                />
+                <a href={checkoutUrl(entry.productId)} className="bg-[#3b82f6] rounded-[6px] shrink-0 w-full block no-underline relative">
+                  <div className="flex items-center justify-center gap-[8px] py-[13px]">
+                    <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] text-white">Start Challenge</p>
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </div>
+                </a>
+              </motion.div>
               <p className="flex items-center justify-center gap-[6px] font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[12px]">
                 <PanelIcon kind="shield" /> Secure checkout · Instant access
               </p>
@@ -2092,29 +2253,51 @@ function Pricing() {
                       key={opt.id}
                       onClick={() => setMobilePanelTab(opt.id)}
                       aria-pressed={active}
-                      className="flex-1 flex items-center justify-center py-[12px] px-[8px] cursor-pointer rounded-[10px] text-center"
+                      className="relative flex-1 flex items-center justify-center py-[12px] px-[8px] cursor-pointer rounded-[10px] text-center transition-transform duration-200 active:scale-[0.97]"
                       style={{
-                        background: active ? "rgba(59,130,246,0.1)" : "transparent",
-                        border: active ? "1px solid #3b82f6" : "1px solid transparent",
-                        boxShadow: active ? "0 0 10px rgba(59,130,246,0.55)" : "none",
                         ...(i > 0 && !active && !prevActive ? { borderLeft: "1px solid rgba(255,255,255,0.1)" } : {}),
                       }}
                     >
-                      <span className="font-['Inter:Medium',sans-serif] font-medium text-[14px]" style={{ color: active ? "#eef0f6" : "#9da2b4" }}>{opt.label}</span>
+                      {active && (
+                        <motion.div
+                          layoutId="pricing-mobile-tab-pill"
+                          className="absolute inset-0 rounded-[10px]"
+                          style={{ background: "rgba(59,130,246,0.1)", border: "1px solid #3b82f6", boxShadow: "0 0 10px rgba(59,130,246,0.55)" }}
+                          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                        />
+                      )}
+                      <span className="relative z-[1] font-['Inter:Medium',sans-serif] font-medium text-[14px]" style={{ color: active ? "#eef0f6" : "#9da2b4" }}>{opt.label}</span>
                     </button>
                   );
                 })}
               </div>
-              {mobilePanelTab === "rules" ? (
-                <>
-                  <KeyRulesRows stats={stats} />
-                  <p className="flex items-center gap-[6px] font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[12px] mt-[4px]">
-                    <PanelIcon kind="shield-check" /> Designed for consistency. Built for growth.
-                  </p>
-                </>
-              ) : (
-                <WhyChoiceBullets bullets={traderChoiceBullets} />
-              )}
+              <AnimatePresence mode="wait">
+                {mobilePanelTab === "rules" ? (
+                  <motion.div
+                    key="rules"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col gap-[16px]"
+                  >
+                    <KeyRulesRows stats={stats} />
+                    <p className="flex items-center gap-[6px] font-['Inter:Regular',sans-serif] font-normal text-[#5f6478] text-[12px] mt-[4px]">
+                      <PanelIcon kind="shield-check" /> Designed for consistency. Built for growth.
+                    </p>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="why"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <WhyChoiceBullets bullets={traderChoiceBullets} />
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </PanelCard>
           </div>
         </div>
