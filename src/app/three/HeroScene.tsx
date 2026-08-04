@@ -14,18 +14,23 @@ import * as THREE from "three";
 // Vite's JS import graph — this is how glTF's own relative references to
 // its .bin buffer and texture files resolve correctly at runtime.
 const ASTEROID_MODEL_URLS = {
+  // Both large asteroids get the 2k texture set + real displacement map —
+  // approved reference composition has exactly two hero-quality rocks, so
+  // both can afford the nicer treatment (previously only the right one had
+  // it). The four small corner rocks stay at 1k / use lower LOD nodes,
+  // which also gives them a visibly different silhouette from the two
+  // large ones despite sharing the same 3 underlying scans.
   rock1: "/models/moon-rock-01/moon_rock_01_1k.gltf",
+  rock1Hi: "/models/moon-rock-01/moon_rock_01_2k.gltf",
   rock2: "/models/moon-rock-02/moon_rock_02_1k.gltf",
-  // The hero-right asteroid gets the 2k texture set (same real geometry,
-  // sharper baked-in surface detail) since it's the single most-scrutinized
-  // object in the scene — the other rocks stay at 1k to keep the rest of
-  // the field's download weight modest.
   rock2Hi: "/models/moon-rock-02/moon_rock_02_2k.gltf",
   rock3: "/models/moon-rock-03/moon_rock_03_1k.gltf",
 } as const;
+const ROCK1_DISPLACEMENT_URL = "/models/moon-rock-01/textures/moon_rock_01_disp_2k.jpg";
 const ROCK2_DISPLACEMENT_URL = "/models/moon-rock-02/textures/moon_rock_02_disp_2k.jpg";
 
 useGLTF.preload(ASTEROID_MODEL_URLS.rock1);
+useGLTF.preload(ASTEROID_MODEL_URLS.rock1Hi);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock2);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
 useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
@@ -35,19 +40,18 @@ interface AsteroidSpec {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
   position: [number, number, number];
-  rotation?: [number, number, number];
+  rotation: [number, number, number];
   scale: number;
   rotationSpeed: number;
   driftRadius: number;
   driftSpeed: number;
   colorTint: number;
   roughnessJitter: number;
-  castShadow?: boolean;
   /** Real displacement map (from the same scan, not synthetic) applied via
    *  MeshStandardMaterial's built-in displacementMap — adds genuine extra
    *  surface relief (deeper crater floors, chipped-looking edges) beyond
    *  what the base mesh resolution shows, without touching the geometry
-   *  data itself. Reserved for the single hero-right asteroid. */
+   *  data itself. Reserved for the two large hero rocks. */
   displacementMap?: THREE.Texture;
   displacementScale?: number;
   displacementBias?: number;
@@ -56,10 +60,12 @@ interface AsteroidSpec {
 // One real asteroid mesh: never distorted (geometry is used exactly as
 // loaded — only position/rotation/scale as a whole object, plus a per-
 // instance material clone for slight color/roughness variation and,
-// optionally, a real displacement map, are ever touched). Rotates
-// extremely slowly on its own axis and drifts in a small bounded loop —
-// "massive," not a floating balloon: rotation speeds and drift radii are
-// deliberately tiny, tuned even slower than the previous pass.
+// optionally, a real displacement map, are ever touched). Every position/
+// rotation/scale value in this file is a fixed, hand-placed number, not
+// randomized — this is a deliberate 6-asteroid composition, not a
+// procedurally-scattered field. Rotation and drift are both extremely
+// slow, tuned per-instance (large rocks barely move at all; small ones a
+// little more) so everything reads as "heavy," never as a floating prop.
 function Asteroid({ spec }: { spec: AsteroidSpec }) {
   const material = useMemo(() => {
     const m = spec.material.clone() as THREE.MeshStandardMaterial;
@@ -102,168 +108,140 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
       position={spec.position}
       rotation={spec.rotation}
       scale={spec.scale}
-      castShadow={spec.castShadow ?? true}
-      receiveShadow={spec.castShadow ?? true}
+      castShadow
+      receiveShadow
     />
   );
 }
 
-// Small/background fragments, real GPU instancing (one draw call per
-// group) — for the numerous minor tier, where instancing actually earns
-// its keep, versus the handful of large/medium rocks a viewer can actually
-// study, which stay as individually-placed unique meshes.
-function FragmentInstances({
-  geometry, material, count, spread, depthNear, depthFar, baseScale,
-}: {
-  geometry: THREE.BufferGeometry; material: THREE.Material; count: number; spread: number; depthNear: number; depthFar: number; baseScale: number;
-}) {
-  const meshRef = useRef<THREE.InstancedMesh>(null);
-  const clonedMaterial = useMemo(() => material.clone(), [material]);
-  useEffect(() => () => clonedMaterial.dispose(), [clonedMaterial]);
-
-  const instances = useMemo(() => {
-    const out: { position: THREE.Vector3; axis: THREE.Vector3; speed: number; scale: number }[] = [];
-    for (let i = 0; i < count; i++) {
-      out.push({
-        position: new THREE.Vector3(
-          (Math.random() - 0.5) * spread,
-          (Math.random() - 0.5) * spread * 0.5,
-          -depthNear - Math.random() * (depthFar - depthNear),
-        ),
-        axis: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize(),
-        speed: 0.006 + Math.random() * 0.01,
-        scale: baseScale * (0.55 + Math.random() * 0.85),
-      });
-    }
-    return out;
-  }, [count, spread, depthNear, depthFar, baseScale]);
-
-  const dummy = useMemo(() => new THREE.Object3D(), []);
-  const rotations = useRef(instances.map(() => new THREE.Euler()));
-
-  useFrame((_, delta) => {
-    const mesh = meshRef.current;
-    if (!mesh) return;
-    instances.forEach((inst, i) => {
-      const rot = rotations.current[i];
-      rot.x += inst.axis.x * inst.speed * delta;
-      rot.y += inst.axis.y * inst.speed * delta;
-      rot.z += inst.axis.z * inst.speed * delta;
-      dummy.position.copy(inst.position);
-      dummy.rotation.copy(rot);
-      dummy.scale.setScalar(inst.scale);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(i, dummy.matrix);
-    });
-    mesh.instanceMatrix.needsUpdate = true;
-  });
-
-  return <instancedMesh ref={meshRef} args={[geometry, clonedMaterial, instances.length]} />;
-}
-
-// Full depth composition: 2 large foreground asteroids (left + right,
-// deliberately different rocks with different static orientations — not
-// mirrored), one small "framing" asteroid near the top-left, 4 midground
-// asteroids, and 8 small background fragments (2 instanced groups of 4).
+// Exactly 6 asteroids, fixed composition: 2 large (left/right, mirrored
+// weight, same vertical alignment, both kept well inside the frame so
+// neither ever clips) + 4 small ones at the four corners (top-left,
+// top-right, lower-left, lower-right), all positioned clear of the
+// centered headline/trust-badge/description/button column. No field, no
+// random scatter, no instancing — six hand-placed objects.
 function AsteroidField() {
   const rock1 = useGLTF(ASTEROID_MODEL_URLS.rock1);
+  const rock1Hi = useGLTF(ASTEROID_MODEL_URLS.rock1Hi);
   const rock2 = useGLTF(ASTEROID_MODEL_URLS.rock2);
   const rock2Hi = useGLTF(ASTEROID_MODEL_URLS.rock2Hi);
   const rock3 = useGLTF(ASTEROID_MODEL_URLS.rock3);
+  const rock1Displacement = useTexture(ROCK1_DISPLACEMENT_URL);
   const rock2Displacement = useTexture(ROCK2_DISPLACEMENT_URL);
 
   useEffect(() => {
+    rock1Displacement.colorSpace = THREE.NoColorSpace;
+    rock1Displacement.needsUpdate = true;
     rock2Displacement.colorSpace = THREE.NoColorSpace;
     rock2Displacement.needsUpdate = true;
-  }, [rock2Displacement]);
+  }, [rock1Displacement, rock2Displacement]);
 
   const rock1LOD0 = rock1.nodes["moon_rock_01_LOD0"] as THREE.Mesh;
-  const rock1LOD1 = (rock1.nodes["moon_rock_01_LOD1"] as THREE.Mesh) ?? rock1LOD0;
   const rock1LOD2 = (rock1.nodes["moon_rock_01_LOD2"] as THREE.Mesh) ?? rock1LOD0;
   const rock1LOD3 = (rock1.nodes["moon_rock_01_LOD3"] as THREE.Mesh) ?? rock1LOD0;
+  const rock1HiLOD0 = rock1Hi.nodes["moon_rock_01_LOD0"] as THREE.Mesh;
   const rock2Mesh = rock2.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
   const rock2HiMesh = rock2Hi.nodes["moon_rock_02_LOD0"] as THREE.Mesh;
   const rock3Mesh = rock3.nodes["moon_rock_03_LOD0"] as THREE.Mesh;
 
-  const largeSpecs = useMemo<AsteroidSpec[]>(
+  const specs = useMemo<AsteroidSpec[]>(
     () => [
-      // RIGHT — the hero rock: 2k textures + a real displacement map for
-      // deeper craters/chipped edges, warm-tinted dark rock.
+      // ── 2 large — mirrored position/scale, same vertical alignment,
+      // both a comfortable margin inside the frame edge (never cropped).
       {
-        key: "right",
+        key: "large-left",
+        geometry: rock1HiLOD0.geometry,
+        material: rock1HiLOD0.material,
+        position: [-5.7, 0.3, -3.6],
+        rotation: [1.1, 2.4, -0.4],
+        scale: 14.4,
+        rotationSpeed: 0.003,
+        driftRadius: 0.015,
+        driftSpeed: 0.006,
+        colorTint: 1.02,
+        roughnessJitter: -0.01,
+        displacementMap: rock1Displacement,
+        displacementScale: 0.016,
+      },
+      {
+        key: "large-right",
         geometry: rock2HiMesh.geometry,
         material: rock2HiMesh.material,
-        position: [5.7, 1.7, -3.8],
+        position: [5.7, 0.3, -3.6],
         rotation: [0.3, -0.6, 0.15],
-        scale: 14,
-        rotationSpeed: 0.006,
-        driftRadius: 0.03,
-        driftSpeed: 0.012,
-        colorTint: 0.92,
+        scale: 14.4,
+        rotationSpeed: 0.0032,
+        driftRadius: 0.015,
+        driftSpeed: 0.0065,
+        colorTint: 0.94,
         roughnessJitter: 0.02,
         displacementMap: rock2Displacement,
         displacementScale: 0.016,
       },
-      // LEFT — a different rock (rock1) at a distinctly different static
-      // orientation, partially clipped off the left edge of the frame.
+      // ── 4 small — one per corner, each a different rock/LOD so no two
+      // share a silhouette; a little more movement than the large pair but
+      // still slow.
       {
-        key: "left",
-        geometry: rock1LOD0.geometry,
-        material: rock1LOD0.material,
-        position: [-7.4, -1.4, -3.6],
-        rotation: [1.1, 2.4, -0.4],
-        scale: 12,
-        rotationSpeed: 0.005,
-        driftRadius: 0.028,
-        driftSpeed: 0.01,
-        colorTint: 1.04,
-        roughnessJitter: -0.02,
-      },
-      // Small "framing" rock near the top-left, clear of the navbar.
-      {
-        key: "top-left",
+        key: "small-top-left",
         geometry: rock3Mesh.geometry,
         material: rock3Mesh.material,
-        position: [-4.4, 3.1, -4.2],
+        position: [-4.2, 3.0, -4.0],
         rotation: [0.6, 1.2, 0.3],
-        scale: 3.4,
-        rotationSpeed: 0.007,
-        driftRadius: 0.025,
-        driftSpeed: 0.011,
+        scale: 3.0,
+        rotationSpeed: 0.006,
+        driftRadius: 0.02,
+        driftSpeed: 0.01,
         colorTint: 1,
         roughnessJitter: 0,
       },
+      {
+        key: "small-top-right",
+        geometry: rock1LOD2.geometry,
+        material: rock1LOD0.material,
+        position: [4.6, 2.9, -4.3],
+        rotation: [2.1, 0.4, 1.6],
+        scale: 2.6,
+        rotationSpeed: 0.0068,
+        driftRadius: 0.022,
+        driftSpeed: 0.011,
+        colorTint: 0.95,
+        roughnessJitter: 0.03,
+      },
+      {
+        key: "small-lower-left",
+        geometry: rock2Mesh.geometry,
+        material: rock2Mesh.material,
+        position: [-2.3, -3.0, -4.6],
+        rotation: [0.9, 3.0, 0.5],
+        scale: 2.1,
+        rotationSpeed: 0.0064,
+        driftRadius: 0.018,
+        driftSpeed: 0.009,
+        colorTint: 1.05,
+        roughnessJitter: -0.02,
+      },
+      {
+        key: "small-lower-right",
+        geometry: rock1LOD3.geometry,
+        material: rock1LOD0.material,
+        position: [2.6, -3.1, -4.8],
+        rotation: [1.7, 2.0, 2.4],
+        scale: 1.8,
+        rotationSpeed: 0.0075,
+        driftRadius: 0.024,
+        driftSpeed: 0.012,
+        colorTint: 0.98,
+        roughnessJitter: 0.02,
+      },
     ],
-    [rock2HiMesh, rock2Displacement, rock1LOD0, rock3Mesh],
+    [rock1HiLOD0, rock1Displacement, rock2HiMesh, rock2Displacement, rock3Mesh, rock1LOD2, rock1LOD0, rock2Mesh, rock1LOD3],
   );
-
-  const midgroundSpecs = useMemo<AsteroidSpec[]>(() => {
-    const sources = [rock1LOD1, rock2Mesh, rock3Mesh, rock1LOD1];
-    return sources.map((src, i) => ({
-      key: `mid${i}`,
-      geometry: src.geometry,
-      material: src.material,
-      position: [(Math.random() - 0.5) * 10, (Math.random() - 0.5) * 5, -6.5 - Math.random() * 3] as [number, number, number],
-      rotation: [Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI] as [number, number, number],
-      scale: 2.8 + Math.random() * 1.8,
-      rotationSpeed: 0.006 + Math.random() * 0.008,
-      driftRadius: 0.02 + Math.random() * 0.03,
-      driftSpeed: 0.008 + Math.random() * 0.008,
-      roughnessJitter: (Math.random() - 0.5) * 0.08,
-      colorTint: 0.92 + Math.random() * 0.2,
-    }));
-  }, [rock1LOD1, rock2Mesh, rock3Mesh]);
 
   return (
     <>
-      {largeSpecs.map((spec) => (
+      {specs.map((spec) => (
         <Asteroid key={spec.key} spec={spec} />
       ))}
-      {midgroundSpecs.map((spec) => (
-        <Asteroid key={spec.key} spec={spec} />
-      ))}
-      <FragmentInstances geometry={rock1LOD3.geometry} material={rock1LOD0.material} count={4} spread={13} depthNear={9} depthFar={16} baseScale={0.55} />
-      <FragmentInstances geometry={rock1LOD2.geometry} material={rock3Mesh.material} count={4} spread={12} depthNear={10} depthFar={17} baseScale={0.5} />
     </>
   );
 }
