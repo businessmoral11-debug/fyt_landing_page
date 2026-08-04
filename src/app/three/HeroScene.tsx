@@ -42,9 +42,25 @@ interface AsteroidSpec {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: number;
+  /** Radians/second — kept tiny throughout ("less than 1° every several
+   *  seconds" for the large pair). */
   rotationSpeed: number;
-  driftRadius: number;
-  driftSpeed: number;
+  /** World-unit peak amplitude of vertical floating motion. At this scene's
+   *  camera/depth setup roughly 1 world unit ≈ 84 screen px at the large
+   *  asteroids' depth (a fixed-camera estimate, not measured against a real
+   *  render), so e.g. 0.048 ≈ 4px peak / 8px peak-to-peak. */
+  floatAmplitudeY: number;
+  /** Seconds for one full vertical float cycle. */
+  floatPeriod: number;
+  /** World-unit peak amplitude of horizontal drift — deliberately on its
+   *  own, shorter-than-vertical amplitude and a different period from the
+   *  float cycle, so the path is a lazy figure/wander rather than a clean
+   *  repeating ellipse (which would read as "orbiting"). */
+  driftAmplitudeX: number;
+  driftPeriod: number;
+  /** Radians — offsets this instance's sine phase so multiple asteroids
+   *  never move in lockstep with each other. */
+  phaseOffset: number;
   colorTint: number;
   roughnessJitter: number;
   /** Real displacement map (from the same scan, not synthetic) applied via
@@ -63,9 +79,14 @@ interface AsteroidSpec {
 // optionally, a real displacement map, are ever touched). Every position/
 // rotation/scale value in this file is a fixed, hand-placed number, not
 // randomized — this is a deliberate 6-asteroid composition, not a
-// procedurally-scattered field. Rotation and drift are both extremely
-// slow, tuned per-instance (large rocks barely move at all; small ones a
-// little more) so everything reads as "heavy," never as a floating prop.
+// procedurally-scattered field.
+//
+// Per-frame, only `mesh.position` and a `rotateOnAxis` call are ever
+// touched — never geometry attributes, never material properties — so this
+// stays GPU-friendly (transform-only) the whole time. Motion is two
+// independent sine waves (vertical float + horizontal drift) on their own
+// periods and phases, smooth and continuous with no direction-change
+// spikes or bounce — "heavy object drifting," not a bouncing/orbiting prop.
 function Asteroid({ spec }: { spec: AsteroidSpec }) {
   const material = useMemo(() => {
     const m = spec.material.clone() as THREE.MeshStandardMaterial;
@@ -93,10 +114,12 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
     if (!mesh) return;
     mesh.rotateOnAxis(rotAxis, spec.rotationSpeed * delta);
     const t = clock.getElapsedTime();
+    const floatPhase = (t / spec.floatPeriod) * Math.PI * 2 + spec.phaseOffset;
+    const driftPhase = (t / spec.driftPeriod) * Math.PI * 2 + spec.phaseOffset * 1.3;
     mesh.position.set(
-      basePos[0] + Math.sin(t * spec.driftSpeed) * spec.driftRadius,
-      basePos[1] + Math.cos(t * spec.driftSpeed * 0.8) * spec.driftRadius * 0.6,
-      basePos[2] + Math.sin(t * spec.driftSpeed * 0.55) * spec.driftRadius * 0.35,
+      basePos[0] + Math.sin(driftPhase) * spec.driftAmplitudeX,
+      basePos[1] + Math.sin(floatPhase) * spec.floatAmplitudeY,
+      basePos[2],
     );
   });
 
@@ -146,41 +169,56 @@ function AsteroidField() {
 
   const specs = useMemo<AsteroidSpec[]>(
     () => [
-      // ── 2 large — mirrored position/scale, same vertical alignment,
-      // both a comfortable margin inside the frame edge (never cropped).
+      // ── 2 large — same scale (matched visual weight), same vertical
+      // alignment. Left: pulled in slightly (-5.7 -> -5.5) to offset its
+      // size increase; rotation changed substantially from the previous
+      // pass — the old orientation was very likely presenting the scan's
+      // flatter "underside" (where the real rock rested during the
+      // photogrammetry capture) toward the camera, which reads as
+      // "blocky/broken" even though the mesh itself is unchanged; a
+      // different facet should look rounder. Displacement bumped up
+      // slightly for more pronounced relief. Right: moved inward
+      // (5.7 -> 5.0) so the whole rock stays inside the frame.
       {
         key: "large-left",
         geometry: rock1HiLOD0.geometry,
         material: rock1HiLOD0.material,
-        position: [-5.7, 0.3, -3.6],
-        rotation: [1.1, 2.4, -0.4],
-        scale: 14.4,
-        rotationSpeed: 0.003,
-        driftRadius: 0.015,
-        driftSpeed: 0.006,
+        position: [-5.5, 0.3, -3.6],
+        rotation: [2.6, 0.5, -1.8],
+        scale: 16.2,
+        rotationSpeed: 0.0022,
+        floatAmplitudeY: 0.048,
+        floatPeriod: 21,
+        driftAmplitudeX: 0.018,
+        driftPeriod: 29,
+        phaseOffset: 0,
         colorTint: 1.02,
         roughnessJitter: -0.01,
         displacementMap: rock1Displacement,
-        displacementScale: 0.016,
+        displacementScale: 0.022,
       },
       {
         key: "large-right",
         geometry: rock2HiMesh.geometry,
         material: rock2HiMesh.material,
-        position: [5.7, 0.3, -3.6],
+        position: [5.0, 0.3, -3.6],
         rotation: [0.3, -0.6, 0.15],
-        scale: 14.4,
-        rotationSpeed: 0.0032,
-        driftRadius: 0.015,
-        driftSpeed: 0.0065,
+        scale: 16.2,
+        rotationSpeed: 0.0024,
+        floatAmplitudeY: 0.048,
+        floatPeriod: 23,
+        driftAmplitudeX: 0.018,
+        driftPeriod: 26,
+        phaseOffset: Math.PI,
         colorTint: 0.94,
         roughnessJitter: 0.02,
         displacementMap: rock2Displacement,
-        displacementScale: 0.016,
+        displacementScale: 0.018,
       },
       // ── 4 small — one per corner, each a different rock/LOD so no two
-      // share a silhouette; a little more movement than the large pair but
-      // still slow.
+      // share a silhouette; slightly more float/drift amplitude than the
+      // large pair, each on its own period and phase so none of the four
+      // ever move in sync with each other or with the large pair.
       {
         key: "small-top-left",
         geometry: rock3Mesh.geometry,
@@ -188,9 +226,12 @@ function AsteroidField() {
         position: [-4.2, 3.0, -4.0],
         rotation: [0.6, 1.2, 0.3],
         scale: 3.0,
-        rotationSpeed: 0.006,
-        driftRadius: 0.02,
-        driftSpeed: 0.01,
+        rotationSpeed: 0.0048,
+        floatAmplitudeY: 0.07,
+        floatPeriod: 14,
+        driftAmplitudeX: 0.03,
+        driftPeriod: 19,
+        phaseOffset: 0.8,
         colorTint: 1,
         roughnessJitter: 0,
       },
@@ -201,9 +242,12 @@ function AsteroidField() {
         position: [4.6, 2.9, -4.3],
         rotation: [2.1, 0.4, 1.6],
         scale: 2.6,
-        rotationSpeed: 0.0068,
-        driftRadius: 0.022,
-        driftSpeed: 0.011,
+        rotationSpeed: 0.0055,
+        floatAmplitudeY: 0.08,
+        floatPeriod: 16,
+        driftAmplitudeX: 0.034,
+        driftPeriod: 21,
+        phaseOffset: 2.6,
         colorTint: 0.95,
         roughnessJitter: 0.03,
       },
@@ -214,9 +258,12 @@ function AsteroidField() {
         position: [-2.3, -3.0, -4.6],
         rotation: [0.9, 3.0, 0.5],
         scale: 2.1,
-        rotationSpeed: 0.0064,
-        driftRadius: 0.018,
-        driftSpeed: 0.009,
+        rotationSpeed: 0.0052,
+        floatAmplitudeY: 0.065,
+        floatPeriod: 12.5,
+        driftAmplitudeX: 0.026,
+        driftPeriod: 17,
+        phaseOffset: 4.4,
         colorTint: 1.05,
         roughnessJitter: -0.02,
       },
@@ -227,9 +274,12 @@ function AsteroidField() {
         position: [2.6, -3.1, -4.8],
         rotation: [1.7, 2.0, 2.4],
         scale: 1.8,
-        rotationSpeed: 0.0075,
-        driftRadius: 0.024,
-        driftSpeed: 0.012,
+        rotationSpeed: 0.006,
+        floatAmplitudeY: 0.085,
+        floatPeriod: 15.5,
+        driftAmplitudeX: 0.032,
+        driftPeriod: 22,
+        phaseOffset: 5.9,
         colorTint: 0.98,
         roughnessJitter: 0.02,
       },
