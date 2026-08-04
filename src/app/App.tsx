@@ -52,14 +52,25 @@ import { useTilt } from "@/app/tilt";
 import { useCursorGlow } from "@/app/cursorGlow";
 import { AmbientBlob } from "@/app/ambient";
 import {
-  proofRevealContainer,
   proofRevealItem,
+  proofLeftReveal,
+  proofRightReveal,
+  proofHeadlineContainer,
+  proofHeadlineLine,
+  proofButtonReveal,
+  proofCardReveal,
   PROOF_FLOAT_Y,
   PROOF_FLOAT_TRANSITION,
   PROOF_AMBIENT_GLOW_OPACITY,
   PROOF_AMBIENT_GLOW_TRANSITION,
   PROOF_CARD_HOVER_TRANSITION,
   proofCardHover,
+  PROOF_CARD_FLOAT_AMPLITUDE_PX,
+  PROOF_CARD_FLOAT_DURATION_S,
+  PROOF_CARD_FLOAT_STAGGER_S,
+  PROOF_CARD_BREATHE_DURATION_S,
+  PROOF_CARD_BREATHE_OPACITY,
+  PROOF_CARD_BREATHE_STAGGER_S,
   PROOF_ICON_MOTION,
   PROOF_ICON_NETWORK_RING_TRANSITION,
   proofIconNetworkRing,
@@ -69,6 +80,12 @@ import {
   PROOF_DATA_LINE_LIGHT_CYCLE_S,
   PROOF_DATA_LINE_LIGHT_DURATION_S,
   PROOF_DATA_LINE_LIGHT_STAGGER_S,
+  PROOF_CONNECTION_LINE_DELAY_S,
+  PROOF_CONNECTION_LINE_DURATION_S,
+  PROOF_CONNECTION_LINE_OPACITY,
+  PROOF_CONNECTION_LINE_TRAVEL_DELAY_S,
+  PROOF_CONNECTION_LINE_TRAVEL_DURATION_S,
+  PROOF_SPOTLIGHT_OPACITY,
 } from "@/app/proofInNumbersMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
 import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/proveSkillReveal";
@@ -1514,18 +1531,26 @@ const PROOF_NOISE_SVG =
 // One stat card: owns its own cursor-glow hook (each card tracks its own
 // pointer position independently — useCursorGlow can't be called inside a
 // .map() callback, hence the dedicated component) plus its icon's idle
-// animation and the hover/reveal motion. `variants={proofRevealItem}` (no
-// own initial/whileInView) is what lets this card participate in
-// ProofInNumbers' single staggered reveal sequence as items 5-8.
+// animation and the hover/reveal motion.
+//
+// Two nested motion.div's, deliberately: the OUTER one only ever runs the
+// continuous per-card idle float (`animate`, always running); the INNER one
+// is the actual "card" — entrance (`variants={proofCardReveal}`, inherited
+// from ProofInNumbers' right-side stagger container, no own initial/
+// whileInView) plus `whileHover`. Framer Motion can't combine an inherited-
+// variant target state and an independent `animate` loop on one component,
+// hence the split (same pattern as the panel-level float in ProofInNumbers).
 function ProofStatCard({
   value,
   label,
   icon,
+  index,
   prefersReducedMotion,
 }: {
   value: string;
   label: string;
   icon: "dollar" | "people" | "globe" | "lightning";
+  index: number;
   prefersReducedMotion: boolean | null;
 }) {
   const glow = useCursorGlow<HTMLDivElement>();
@@ -1533,53 +1558,78 @@ function ProofStatCard({
 
   return (
     <motion.div
-      ref={glow.ref}
-      onMouseMove={glow.onMouseMove}
-      onMouseLeave={glow.onMouseLeave}
-      variants={proofRevealItem}
-      whileHover={prefersReducedMotion ? undefined : proofCardHover}
-      transition={PROOF_CARD_HOVER_TRANSITION}
-      className="group relative flex flex-col gap-[10px] items-center justify-center overflow-hidden rounded-[14px] px-[16px] py-[24px] lg:py-[28px] text-center"
-      style={{
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "linear-gradient(155deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015) 60%)",
-        boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 0 0 32px rgba(59,130,246,0.04), 0 18px 40px -22px rgba(0,0,0,0.55)",
-      }}
+      animate={prefersReducedMotion ? undefined : { y: [0, -PROOF_CARD_FLOAT_AMPLITUDE_PX, 0] }}
+      transition={
+        prefersReducedMotion
+          ? undefined
+          : { duration: PROOF_CARD_FLOAT_DURATION_S, repeat: Infinity, ease: "easeInOut", delay: index * PROOF_CARD_FLOAT_STAGGER_S }
+      }
     >
-      {/* cursor-following highlight — position only, no tilt/rotation */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{ background: "radial-gradient(160px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(96,165,250,0.14), transparent 70%)" }}
-      />
-      {/* top reflection sliver */}
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-px"
-        style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)" }}
-      />
-      <div className="relative flex items-center justify-center rounded-full size-[36px]" style={{ border: "1px solid rgba(96,165,250,0.35)" }}>
-        {icon === "people" && !prefersReducedMotion && (
-          <motion.span
+      <motion.div
+        ref={glow.ref}
+        onMouseMove={glow.onMouseMove}
+        onMouseLeave={glow.onMouseLeave}
+        variants={proofCardReveal}
+        whileHover={prefersReducedMotion ? undefined : proofCardHover}
+        transition={PROOF_CARD_HOVER_TRANSITION}
+        className="proof-card group relative flex h-full w-full flex-col gap-[10px] items-center justify-center overflow-hidden rounded-[14px] px-[16px] py-[24px] lg:py-[28px] text-center"
+        style={{
+          border: "1px solid rgba(255,255,255,0.08)",
+          background: "linear-gradient(155deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015) 60%)",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.07), inset 0 0 32px rgba(59,130,246,0.04), 0 18px 40px -22px rgba(0,0,0,0.55)",
+        }}
+      >
+        {/* cursor-following highlight — position only, no tilt/rotation */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+          style={{ background: "radial-gradient(160px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(96,165,250,0.14), transparent 70%)" }}
+        />
+        {/* top reflection sliver */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-0 top-0 h-px"
+          style={{ background: "linear-gradient(90deg, transparent, rgba(255,255,255,0.22), transparent)" }}
+        />
+        {/* border "breathing" — opacity-only (never borderColor directly, to
+            stay GPU-composited transform/opacity), phase-offset per card */}
+        {!prefersReducedMotion && (
+          <motion.div
             aria-hidden="true"
-            className="absolute inset-0 rounded-full"
-            style={{ border: "1px solid rgba(96,165,250,0.55)" }}
-            animate={proofIconNetworkRing}
-            transition={PROOF_ICON_NETWORK_RING_TRANSITION}
+            className="pointer-events-none absolute inset-0 rounded-[14px]"
+            style={{ border: "1px solid rgba(96,165,250,0.4)" }}
+            animate={{ opacity: PROOF_CARD_BREATHE_OPACITY }}
+            transition={{ duration: PROOF_CARD_BREATHE_DURATION_S, repeat: Infinity, ease: "easeInOut", delay: index * PROOF_CARD_BREATHE_STAGGER_S }}
           />
         )}
-        <motion.div animate={prefersReducedMotion ? undefined : iconMotion.animate} transition={iconMotion.transition}>
-          <ProofStatIcon kind={icon} />
-        </motion.div>
-      </div>
-      <CountUpStat value={value} />
-      <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px] tracking-[0.5px] uppercase">{label}</p>
+        <div className="relative flex items-center justify-center rounded-full size-[36px]" style={{ border: "1px solid rgba(96,165,250,0.35)" }}>
+          {icon === "people" && !prefersReducedMotion && (
+            <motion.span
+              aria-hidden="true"
+              className="absolute inset-0 rounded-full"
+              style={{ border: "1px solid rgba(96,165,250,0.55)" }}
+              animate={proofIconNetworkRing}
+              transition={PROOF_ICON_NETWORK_RING_TRANSITION}
+            />
+          )}
+          <motion.div animate={prefersReducedMotion ? undefined : iconMotion.animate} transition={iconMotion.transition}>
+            <ProofStatIcon kind={icon} />
+          </motion.div>
+        </div>
+        <CountUpStat value={value} />
+        <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px] tracking-[0.5px] uppercase">{label}</p>
+      </motion.div>
     </motion.div>
   );
 }
 
 function ProofInNumbers() {
   const prefersReducedMotion = useReducedMotion();
+  // Section-wide ambient spotlight — distinct from each card's own,
+  // brighter, tightly-clipped cursor glow above (see ProofStatCard); this
+  // one is much more subtle (5% opacity) and tracks the cursor anywhere
+  // within the panel, not just over a card.
+  const spotlight = useCursorGlow<HTMLDivElement>();
 
   return (
     <div
@@ -1643,12 +1693,11 @@ function ProofInNumbers() {
           animate={prefersReducedMotion ? undefined : { y: PROOF_FLOAT_Y }}
           transition={prefersReducedMotion ? undefined : PROOF_FLOAT_TRANSITION}
         >
-          <motion.div
-            initial="hidden"
-            whileInView="show"
-            viewport={{ once: true, margin: "-80px" }}
-            variants={proofRevealContainer}
-            className="w-full rounded-[20px] p-[24px] lg:p-[48px]"
+          <div
+            ref={spotlight.ref}
+            onMouseMove={spotlight.onMouseMove}
+            onMouseLeave={spotlight.onMouseLeave}
+            className="proof-panel relative w-full rounded-[20px] p-[24px] lg:p-[48px]"
             style={{
               border: "1px solid rgba(255,255,255,0.08)",
               background: "linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0.015))",
@@ -1657,9 +1706,25 @@ function ProofInNumbers() {
               boxShadow: "inset 0 1px 0 rgba(255,255,255,0.06), 0 30px 80px -30px rgba(0,0,0,0.6)",
             }}
           >
-            <div className="flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center lg:items-stretch">
-              {/* Left: kicker, heading, description, CTA — reveal items 1-4 */}
-              <div className="flex-1 flex flex-col gap-[16px] items-start justify-center text-left w-full">
+            {/* Section-wide ambient cursor spotlight — very subtle (5%),
+                distinct from each card's own brighter hover-glow. */}
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 rounded-[20px]"
+              style={{
+                background: `radial-gradient(420px circle at var(--glow-x, 50%) var(--glow-y, 50%), rgba(96,165,250,${PROOF_SPOTLIGHT_OPACITY}), transparent 70%)`,
+              }}
+            />
+            <div className="relative flex flex-col lg:flex-row gap-[32px] lg:gap-[56px] items-center lg:items-stretch">
+              {/* Left: kicker, heading, description, CTA — slides in from the
+                  left as one block, with its own internal stagger. */}
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: "-80px" }}
+                variants={proofLeftReveal}
+                className="flex-1 flex flex-col gap-[16px] items-start justify-center text-left w-full"
+              >
                 <motion.span
                   variants={proofRevealItem}
                   className="px-[16px] py-[6px] rounded-full text-[#60a5fa] text-[11px] font-['Inter:Semi_Bold',sans-serif] font-semibold tracking-[1.5px] uppercase"
@@ -1667,12 +1732,17 @@ function ProofInNumbers() {
                 >
                   Proof in Numbers
                 </motion.span>
+                {/* Heading reveals line-by-line (2 lines), not word-by-word. */}
                 <motion.h2
-                  variants={proofRevealItem}
+                  variants={proofHeadlineContainer}
                   className="font-['DM_Sans',sans-serif] font-medium text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em]"
                 >
-                  <span className="block text-[#eef0f6]">Thousands traded.</span>
-                  <span className="block text-[#3b82f6]">Millions rewarded.</span>
+                  <motion.span variants={proofHeadlineLine} className="block text-[#eef0f6]">
+                    Thousands traded.
+                  </motion.span>
+                  <motion.span variants={proofHeadlineLine} className="block text-[#3b82f6]">
+                    Millions rewarded.
+                  </motion.span>
                 </motion.h2>
                 <motion.p
                   variants={proofRevealItem}
@@ -1680,11 +1750,11 @@ function ProofInNumbers() {
                 >
                   A global community built on transparent conditions, real progress, and rewards delivered to traders.
                 </motion.p>
-                <motion.div variants={proofRevealItem} className="mt-[8px]">
+                <motion.div variants={proofButtonReveal} className="mt-[8px]">
                   <HeroCta
                     href="#live-payouts"
                     magneticStrength={0.18}
-                    className="flex items-center gap-[10px] px-[24px] py-[12px] relative overflow-hidden rounded-[999px] shrink-0 no-underline transition-shadow duration-300 hover:shadow-[0_12px_45px_-8px_rgba(59,130,246,0.65)]"
+                    className="group flex items-center gap-[10px] px-[24px] py-[12px] relative overflow-hidden rounded-[999px] shrink-0 no-underline transition-shadow duration-300 hover:shadow-[0_12px_45px_-8px_rgba(59,130,246,0.65)]"
                     style={PILL_CTA_GRADIENT_STYLE}
                   >
                     {!prefersReducedMotion && (
@@ -1699,14 +1769,61 @@ function ProofInNumbers() {
                     )}
                     <div aria-hidden className="absolute border border-[rgba(156,196,255,0.35)] border-solid inset-0 pointer-events-none rounded-[999px]" />
                     <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-[14px] text-white whitespace-nowrap">View Live Rewards</p>
-                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      className="transition-transform duration-300 group-hover:translate-x-[6px]"
+                    >
                       <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
                   </HeroCta>
                 </motion.div>
+              </motion.div>
+
+              {/* Meeting line: grows left → right once both sides have
+                  arrived, then plays a one-shot traveling glow. Desktop-only
+                  (the split layout only exists at lg:); hover-brightening is
+                  CSS-only (.proof-panel:has(.proof-card:hover), see
+                  tailwind.css) so no re-render is involved. */}
+              <div className="hidden lg:block absolute left-[48px] right-[48px] top-1/2 h-px pointer-events-none">
+                {!prefersReducedMotion && (
+                  <motion.div
+                    className="proof-connection-line absolute inset-0 origin-left"
+                    style={{
+                      background: "linear-gradient(90deg, transparent, #60a5fa, transparent)",
+                      boxShadow: "0 0 8px rgba(96,165,250,0.6)",
+                      opacity: PROOF_CONNECTION_LINE_OPACITY,
+                    }}
+                    initial={{ scaleX: 0 }}
+                    whileInView={{ scaleX: 1 }}
+                    viewport={{ once: true, margin: "-80px" }}
+                    transition={{ duration: PROOF_CONNECTION_LINE_DURATION_S, delay: PROOF_CONNECTION_LINE_DELAY_S, ease: [0.16, 1, 0.3, 1] }}
+                  />
+                )}
+                {!prefersReducedMotion && (
+                  <motion.div
+                    aria-hidden="true"
+                    className="absolute top-1/2 size-[6px] -translate-y-1/2 rounded-full"
+                    style={{ background: "#93c5fd", boxShadow: "0 0 12px 2px rgba(147,197,253,0.9)" }}
+                    initial={{ left: "0%", opacity: 0 }}
+                    whileInView={{ left: "100%", opacity: [0, 1, 1, 0] }}
+                    viewport={{ once: true, margin: "-80px" }}
+                    transition={{ duration: PROOF_CONNECTION_LINE_TRAVEL_DURATION_S, delay: PROOF_CONNECTION_LINE_TRAVEL_DELAY_S, ease: "easeInOut" }}
+                  />
+                )}
               </div>
-              {/* Right: 2x2 stat grid — reveal items 5-8 */}
-              <div className="flex-1 grid grid-cols-2 gap-[12px] lg:gap-[16px] w-full relative">
+
+              {/* Right: 2x2 stat grid — slides in from the right as one
+                  block; the 4 cards stagger TL → TR → BL → BR within it. */}
+              <motion.div
+                initial="hidden"
+                whileInView="show"
+                viewport={{ once: true, margin: "-80px" }}
+                variants={proofRightReveal}
+                className="flex-1 grid grid-cols-2 gap-[12px] lg:gap-[16px] w-full relative"
+              >
                 {/* Extremely faint hub-and-spoke connection lines between the
                     4 cards, with a small light traveling each one every few
                     seconds — see PROOF_DATA_LINES. */}
@@ -1737,12 +1854,12 @@ function ProofInNumbers() {
                     </g>
                   ))}
                 </svg>
-                {PROOF_STATS.map(({ value, label, icon }) => (
-                  <ProofStatCard key={label} value={value} label={label} icon={icon} prefersReducedMotion={prefersReducedMotion} />
+                {PROOF_STATS.map(({ value, label, icon }, i) => (
+                  <ProofStatCard key={label} value={value} label={label} icon={icon} index={i} prefersReducedMotion={prefersReducedMotion} />
                 ))}
-              </div>
+              </motion.div>
             </div>
-          </motion.div>
+          </div>
         </motion.div>
       </div>
     </div>

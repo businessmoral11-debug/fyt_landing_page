@@ -29,3 +29,13 @@
   animation: proof-shimmer 9s ease-in-out infinite;
   animation-delay: 1.6s;
 }
+
+/* Proof in Numbers: hovering any stat card slightly brightens the
+   left↔right connection line — CSS-only (no React state/re-render) via
+   :has(), opacity only. */
+.proof-connection-line {
+  transition: opacity 300ms ease;
+}
+.proof-panel:has(.proof-card:hover) .proof-connection-line {
+  opacity: 0.5;
+}
