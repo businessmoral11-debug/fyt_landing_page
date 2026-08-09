@@ -3501,12 +3501,14 @@ function SupportChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
     const previousLeft = body.style.left;
     const previousRight = body.style.right;
     const previousWidth = body.style.width;
+    const previousHeight = body.style.height;
     const previousOverflow = body.style.overflow;
     body.style.position = "fixed";
     body.style.top = `-${scrollY}px`;
     body.style.left = "0";
     body.style.right = "0";
     body.style.width = "100%";
+    body.style.height = "auto";
     body.style.overflow = "hidden";
     closeButtonRef.current?.focus({ preventScroll: true });
     return () => {
@@ -3516,6 +3518,7 @@ function SupportChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
       body.style.left = previousLeft;
       body.style.right = previousRight;
       body.style.width = previousWidth;
+      body.style.height = previousHeight;
       body.style.overflow = previousOverflow;
       window.scrollTo({ top: scrollY, left: 0, behavior: "instant" });
       requestAnimationFrame(() => {
@@ -3546,7 +3549,7 @@ function SupportChatPanel({ open, onClose }: { open: boolean; onClose: () => voi
         initial={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
         animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
         transition={{ type: "spring", stiffness: 340, damping: 34 }}
-        className="relative flex flex-col w-full sm:w-[400px] h-full sm:h-[min(680px,100dvh)] sm:my-auto sm:mr-[20px] sm:rounded-[20px] overflow-hidden"
+        className="relative flex flex-col w-full sm:w-[500px] h-full sm:h-[min(680px,100dvh)] sm:my-auto sm:mr-[20px] sm:rounded-[20px] overflow-hidden"
         style={{
           background: "#0B1220",
           boxShadow: "0 24px 64px -12px rgba(0,0,0,0.55)",
