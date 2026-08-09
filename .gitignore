@@ -5,3 +5,14 @@
 /.superpowers/
 .DS_Store
 .idea/
+*.log
+.vercel
+
+# Deployment-specific configuration (backend URL, etc.) — every developer/
+# deployment sets their own; .env.example documents the shape.
+.env
+.env.*
+!.env.example
+
+.vercel
+.env*

@@ -65,9 +65,6 @@ describe("pointInMultiPolygon", () => {
 
 describe("sampleLandGrid", () => {
   it("samples only grid points that fall inside the polygon, on the given step", () => {
-    // Square from (-3,-3) to (13,13): a 5° grid lands exactly on 0, 5, 10 inside
-    // it, with no grid point exactly on the -3/13 boundary (avoids boundary
-    // point-in-polygon ambiguity in the test itself).
     const square = [
       [
         [-3, -3],

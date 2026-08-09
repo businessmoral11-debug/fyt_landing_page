@@ -1,13 +1,4 @@
-// Pure helpers for extracting the fundingyourtrades.com PRODUCTS_CONFIG object
-// literal out of raw page HTML and turning it into strict, parseable JSON.
-// No network I/O here — see check-pricing-drift.mjs for the fetch + compare.
 
-// Finds the first occurrence of `marker` and returns the substring from the
-// next "[" up to (and including) its matching "]", scanning bracket depth.
-// String-aware: bracket characters inside quoted string values never affect
-// the depth count, and only the FIRST marker match is used (see
-// check-pricing-drift.mjs for why the live page's first PRODUCTS_CONFIG
-// block is the one that actually executes).
 export function extractArrayLiteral(html, marker) {
   const markerIdx = html.indexOf(marker);
   if (markerIdx === -1) throw new Error(`marker not found: ${marker}`);
@@ -38,16 +29,6 @@ export function extractArrayLiteral(html, marker) {
   throw new Error(`unterminated array literal starting at index ${start}`);
 }
 
-// Converts a JS array/object literal (unquoted keys, // comments, optional
-// single-quoted strings) into strict JSON text. Single-pass and string-aware
-// throughout — comment-stripping and key-quoting only ever apply outside of
-// quoted string content, which is what makes this safe against values like
-// "https://example.com/path" that contain a literal "//".
-//
-// Known limitation: the final trailing-comma cleanup is a plain regex over
-// the fully-resolved text, not part of the string-aware pass — acceptable
-// here because no value in this config contains a literal ", }" or ", ]"
-// substring (verified against the live data as of 2026-07-28).
 export function sanitizeToJson(text) {
   let out = "";
   let i = 0;

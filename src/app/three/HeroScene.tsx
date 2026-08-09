@@ -1,38 +1,11 @@
-import { memo, Suspense, useEffect, useMemo, useRef } from "react";
+import { memo, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, type RootState } from "@react-three/fiber";
 import { useGLTF, useTexture } from "@react-three/drei";
 import * as THREE from "three";
 
-// ─── ASTEROID SCENE TOGGLE ──────────────────────────────────────────────────
-// Soft-disabled, not deleted: every asteroid asset/component below (models,
-// textures, AsteroidField, Asteroid) stays fully intact so the previous
-// asteroid-field hero can come back by flipping this one flag to `true` —
-// nothing else in this file needs to change to switch back. While disabled,
-// the model/texture preloads are also skipped (no point downloading assets
-// for a scene that isn't rendering) and <AsteroidField/> itself never
-// mounts, so it costs nothing at runtime either.
 const ASTEROIDS_ENABLED = false;
 
-// ─── REAL ASTEROID ASSETS ────────────────────────────────────────────────────
-// Real, photogrammetry-scanned rock models (Poly Haven's "Moon Rock" set —
-// CC0-licensed, no attribution required, no login/API key needed) — not
-// procedural geometry. Each ships proper PBR textures (base color, GL-space
-// normal map, and a packed ambient-occlusion/roughness/metalness map) baked
-// from an actual photographed rock, loaded here via glTF exactly as
-// authored. Files live in /public/models/ (see that folder for the source
-// manifest) and are served as plain static assets, not bundled through
-// Vite's JS import graph — this is how glTF's own relative references to
-// its .bin buffer and texture files resolve correctly at runtime.
 const ASTEROID_MODEL_URLS = {
-  // Both large asteroids get a 2k texture set + real displacement map. The
-  // large-left slot uses moon_rock_05 (Poly Haven's roundest scan — max/min
-  // dimension ratio ~1.13, vs. ~2.82 for moon_rock_01) instead of rock1:
-  // rock1's real scanned proportions are genuinely elongated, so no amount
-  // of rotation ever reads as "rounded" from every angle — swapping the
-  // source model (not deforming it) is what the user explicitly asked for.
-  // rock1 (1k) stays loaded because the two small-right corner rocks still
-  // use its lower LOD nodes for silhouette variety. The four small corner
-  // rocks stay at 1k / lower LOD nodes throughout.
   rock1: "/models/moon-rock-01/moon_rock_01_1k.gltf",
   rock2: "/models/moon-rock-02/moon_rock_02_1k.gltf",
   rock2Hi: "/models/moon-rock-02/moon_rock_02_2k.gltf",
@@ -48,10 +21,6 @@ if (ASTEROIDS_ENABLED) {
   useGLTF.preload(ASTEROID_MODEL_URLS.rock2Hi);
   useGLTF.preload(ASTEROID_MODEL_URLS.rock3);
   useGLTF.preload(ASTEROID_MODEL_URLS.rock5Hi);
-  // The two displacement maps were being fetched lazily on first render inside
-  // AsteroidField's useTexture() calls — preloaded here too so every asset
-  // (models + textures) starts downloading at module-evaluation time, not
-  // staggered behind component mount.
   useTexture.preload(ROCK2_DISPLACEMENT_URL);
   useTexture.preload(ROCK5_DISPLACEMENT_URL);
 }
@@ -63,51 +32,37 @@ interface AsteroidSpec {
   position: [number, number, number];
   rotation: [number, number, number];
   scale: number;
-  /** Radians/second — kept tiny throughout ("less than 1° every several
-   *  seconds" for the large pair). */
+  scaleAxes?: [number, number, number];
   rotationSpeed: number;
-  /** World-unit peak amplitude of vertical floating motion. At this scene's
-   *  camera/depth setup roughly 1 world unit ≈ 84 screen px at the large
-   *  asteroids' depth (a fixed-camera estimate, not measured against a real
-   *  render), so e.g. 0.048 ≈ 4px peak / 8px peak-to-peak. */
   floatAmplitudeY: number;
   /** Seconds for one full vertical float cycle. */
   floatPeriod: number;
-  /** World-unit peak amplitude of horizontal drift — deliberately on its
-   *  own, shorter-than-vertical amplitude and a different period from the
-   *  float cycle, so the path is a lazy figure/wander rather than a clean
-   *  repeating ellipse (which would read as "orbiting"). */
   driftAmplitudeX: number;
   driftPeriod: number;
-  /** Radians — offsets this instance's sine phase so multiple asteroids
-   *  never move in lockstep with each other. */
   phaseOffset: number;
   colorTint: number;
   roughnessJitter: number;
-  /** Real displacement map (from the same scan, not synthetic) applied via
-   *  MeshStandardMaterial's built-in displacementMap — adds genuine extra
-   *  surface relief (deeper crater floors, chipped-looking edges) beyond
-   *  what the base mesh resolution shows, without touching the geometry
-   *  data itself. Reserved for the two large hero rocks. */
   displacementMap?: THREE.Texture;
   displacementScale?: number;
   displacementBias?: number;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
 }
 
-// One real asteroid mesh: never distorted (geometry is used exactly as
-// loaded — only position/rotation/scale as a whole object, plus a per-
-// instance material clone for slight color/roughness variation and,
-// optionally, a real displacement map, are ever touched). Every position/
-// rotation/scale value in this file is a fixed, hand-placed number, not
-// randomized — this is a deliberate 6-asteroid composition, not a
-// procedurally-scattered field.
-//
-// Per-frame, only `mesh.position` and a `rotateOnAxis` call are ever
-// touched — never geometry attributes, never material properties — so this
-// stays GPU-friendly (transform-only) the whole time. Motion is two
-// independent sine waves (vertical float + horizontal drift) on their own
-// periods and phases, smooth and continuous with no direction-change
-// spikes or bounce — "heavy object drifting," not a bouncing/orbiting prop.
+function randRange(min: number, max: number): number {
+  return min + Math.random() * (max - min);
+}
+
+function inHeroTextZone(x: number, y: number): boolean {
+  return Math.abs(x) < 3.6 && y > -2.4 && y < 3.8;
+}
+
+function inHeroTextZoneScaled(x: number, y: number, z: number): boolean {
+  const distance = 8 - z;
+  const scale = Math.max(1, distance / 12); // 12 ≈ distance of the original small-corner rocks
+  return Math.abs(x) < 3.6 * scale && y > -2.4 * scale && y < 3.8 * scale;
+}
+
 function Asteroid({ spec }: { spec: AsteroidSpec }) {
   const material = useMemo(() => {
     const m = spec.material.clone() as THREE.MeshStandardMaterial;
@@ -151,19 +106,127 @@ function Asteroid({ spec }: { spec: AsteroidSpec }) {
       material={material}
       position={spec.position}
       rotation={spec.rotation}
-      scale={spec.scale}
-      castShadow
-      receiveShadow
+      scale={
+        spec.scaleAxes
+          ? [spec.scale * spec.scaleAxes[0], spec.scale * spec.scaleAxes[1], spec.scale * spec.scaleAxes[2]]
+          : spec.scale
+      }
+      castShadow={spec.castShadow ?? true}
+      receiveShadow={spec.receiveShadow ?? true}
     />
   );
 }
 
-// Exactly 6 asteroids, fixed composition: 2 large (left/right, mirrored
-// weight, same vertical alignment, both kept well inside the frame so
-// neither ever clips) + 4 small ones at the four corners (top-left,
-// top-right, lower-left, lower-right), all positioned clear of the
-// centered headline/trust-badge/description/button column. No field, no
-// random scatter, no instancing — six hand-placed objects.
+interface ScatterPoolEntry {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+}
+interface ScatterOptions {
+  count: number;
+  pool: ScatterPoolEntry[];
+  xRange: [number, number];
+  yRange: [number, number];
+  zRange: [number, number];
+  scaleRange: [number, number];
+  floatAmpRange: [number, number];
+  floatPeriodRange: [number, number];
+  driftAmpRange: [number, number];
+  driftPeriodRange: [number, number];
+  rotationSpeedRange: [number, number];
+  keyPrefix: string;
+  edgeBias?: boolean;
+}
+function buildScatterSpecs(opts: ScatterOptions): AsteroidSpec[] {
+  const specs: AsteroidSpec[] = [];
+  let attempts = 0;
+  while (specs.length < opts.count && attempts < opts.count * 40) {
+    attempts++;
+    let x = randRange(opts.xRange[0], opts.xRange[1]);
+    let y = randRange(opts.yRange[0], opts.yRange[1]);
+    if (opts.edgeBias) {
+      const edgeX = randRange(opts.xRange[0], opts.xRange[1]);
+      const edgeY = randRange(opts.yRange[0], opts.yRange[1]);
+      x = Math.abs(edgeX) > Math.abs(x) ? edgeX : x;
+      y = Math.abs(edgeY) > Math.abs(y) ? edgeY : y;
+    }
+    const z = randRange(opts.zRange[0], opts.zRange[1]);
+    if (inHeroTextZoneScaled(x, y, z)) continue;
+    const pick = opts.pool[Math.floor(Math.random() * opts.pool.length)];
+    specs.push({
+      key: `${opts.keyPrefix}-${specs.length}`,
+      geometry: pick.geometry,
+      material: pick.material,
+      position: [x, y, z],
+      rotation: [randRange(0, Math.PI * 2), randRange(0, Math.PI * 2), randRange(0, Math.PI * 2)],
+      scale: randRange(opts.scaleRange[0], opts.scaleRange[1]),
+      scaleAxes: [randRange(0.82, 1.22), randRange(0.82, 1.22), randRange(0.82, 1.22)],
+      rotationSpeed: randRange(opts.rotationSpeedRange[0], opts.rotationSpeedRange[1]),
+      floatAmplitudeY: randRange(opts.floatAmpRange[0], opts.floatAmpRange[1]),
+      floatPeriod: randRange(opts.floatPeriodRange[0], opts.floatPeriodRange[1]),
+      driftAmplitudeX: randRange(opts.driftAmpRange[0], opts.driftAmpRange[1]),
+      driftPeriod: randRange(opts.driftPeriodRange[0], opts.driftPeriodRange[1]),
+      phaseOffset: randRange(0, Math.PI * 2),
+      colorTint: randRange(0.85, 1.08),
+      roughnessJitter: randRange(-0.04, 0.04),
+      castShadow: false,
+      receiveShadow: false,
+    });
+  }
+  return specs;
+}
+
+const MICRO_COUNT = 170;
+
+function MicroAsteroids({ geometry, material }: { geometry: THREE.BufferGeometry; material: THREE.Material }) {
+  const meshRef = useRef<THREE.InstancedMesh>(null);
+  const groupRef = useRef<THREE.Group>(null);
+  const builtRef = useRef(false);
+
+  const instMaterial = useMemo(() => {
+    const m = (material as THREE.MeshStandardMaterial).clone();
+    if (typeof m.roughness === "number") m.roughness = THREE.MathUtils.clamp(m.roughness + 0.05, 0.4, 1);
+    m.needsUpdate = true;
+    return m;
+  }, [material]);
+
+  useEffect(() => () => instMaterial.dispose(), [instMaterial]);
+
+  useFrame(({ clock }) => {
+    const mesh = meshRef.current;
+    if (mesh && !builtRef.current) {
+      builtRef.current = true;
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < MICRO_COUNT; i++) {
+        let x = 0;
+        let y = 0;
+        do {
+          x = randRange(-12, 12);
+          y = randRange(-6.8, 6.8);
+        } while (inHeroTextZone(x, y));
+        dummy.position.set(x, y, randRange(-17, -30));
+        dummy.rotation.set(randRange(0, Math.PI * 2), randRange(0, Math.PI * 2), randRange(0, Math.PI * 2));
+        const base = randRange(0.3, 1.05);
+        dummy.scale.set(base * randRange(0.8, 1.2), base * randRange(0.8, 1.2), base * randRange(0.8, 1.2));
+        dummy.updateMatrix();
+        mesh.setMatrixAt(i, dummy.matrix);
+      }
+      mesh.instanceMatrix.needsUpdate = true;
+      mesh.frustumCulled = false;
+    }
+    if (groupRef.current) {
+      const t = clock.getElapsedTime();
+      groupRef.current.position.x = Math.sin(t * 0.015) * 0.5;
+      groupRef.current.rotation.z = t * 0.0018;
+    }
+  });
+
+  return (
+    <group ref={groupRef}>
+      <instancedMesh ref={meshRef} args={[geometry, instMaterial, MICRO_COUNT]} castShadow={false} receiveShadow={false} />
+    </group>
+  );
+}
+
 function AsteroidField() {
   const rock1 = useGLTF(ASTEROID_MODEL_URLS.rock1);
   const rock2 = useGLTF(ASTEROID_MODEL_URLS.rock2);
@@ -190,33 +253,14 @@ function AsteroidField() {
 
   const specs = useMemo<AsteroidSpec[]>(
     () => [
-      // ── 2 large — deliberately different apparent sizes now (right is
-      // still the bigger of the two, ~28%, but no longer dominant), both
-      // scales derived from real-world scan dimensions (Poly Haven
-      // `dimensions` metadata: rock5 avg ~75.5mm, rock2 avg ~233.8mm) times
-      // scale so the *apparent* on-screen size moves by the requested
-      // percentage — matching raw `scale` numbers between two different
-      // scans does not produce equal visual size. `scale` stays a single
-      // uniform number for both (never per-axis) — geometry is never
-      // stretched, squashed, or otherwise deformed anywhere in this file.
-      //
-      // Left: previously rock1 (elongated scan, ratio ~2.82) rotated to
-      // try to hide its long axis — no orientation of an elongated mesh
-      // reads as "rounded" from every angle, so per explicit request this
-      // now uses rock5 instead (Poly Haven's roundest moon-rock scan,
-      // ratio ~1.13 — genuinely chunky/spherical, not a rotation trick).
-      // Old apparent size (rock1 @ scale 16.2) ≈2.16 units; new scale
-      // (31.4) targets ≈2.37 units, a ~10% increase, at the same position.
       {
         key: "large-left",
         geometry: rock5HiLOD0.geometry,
         material: rock5HiLOD0.material,
-        position: [-5.5, -2.2, -3.6],
+        position: [-6.3, -2.9, -3.5],
         rotation: [0.6, 2.1, -0.3],
-        scale: 31.4,
+        scale: 33.0,
         rotationSpeed: 0.0022,
-        // Float amplitude/period retuned to the requested 6–10px / 10–16s
-        // window (~84 world-units-to-px at this depth): 0.08 ≈ 6.7px, 13s.
         floatAmplitudeY: 0.08,
         floatPeriod: 13,
         driftAmplitudeX: 0.018,
@@ -227,26 +271,14 @@ function AsteroidField() {
         displacementMap: rock5Displacement,
         displacementScale: 0.007,
       },
-      // Right: same rock2 model, same rotation/material/displacement —
-      // only resized (previous pass) and now moved up (this pass) so the
-      // two large rocks don't sit on the same horizontal line. +0.8 on Y
-      // (this scene's +Y is up — small-top-left sits at y=3.0, small-
-      // lower-left at y=-3.0 — so "move upward" means increasing Y here,
-      // not the negative delta a screen-space/image convention would
-      // suggest). At this new position + the already-reduced scale (13.0,
-      // apparent size ≈3.03 units ≈ radius 1.5), the rock's top edge sits
-      // well inside the visible frustum at this depth and its right edge
-      // has generous clearance from the viewport edge — no clipping.
       {
         key: "large-right",
         geometry: rock2HiMesh.geometry,
         material: rock2HiMesh.material,
-        position: [5.0, 1.1, -3.6],
+        position: [6.1, -3.1, -3.3],
         rotation: [0.3, -0.6, 0.15],
-        scale: 13.0,
+        scale: 16.5,
         rotationSpeed: 0.0024,
-        // Float amplitude/period retuned to the requested 6–10px / 10–16s
-        // window: 0.095 ≈ 8px, 15s.
         floatAmplitudeY: 0.095,
         floatPeriod: 15,
         driftAmplitudeX: 0.018,
@@ -257,10 +289,6 @@ function AsteroidField() {
         displacementMap: rock2Displacement,
         displacementScale: 0.018,
       },
-      // ── 4 small — one per corner, each a different rock/LOD so no two
-      // share a silhouette; slightly more float/drift amplitude than the
-      // large pair, each on its own period and phase so none of the four
-      // ever move in sync with each other or with the large pair.
       {
         key: "small-top-left",
         geometry: rock3Mesh.geometry,
@@ -329,44 +357,103 @@ function AsteroidField() {
     [rock5HiLOD0, rock5Displacement, rock2HiMesh, rock2Displacement, rock3Mesh, rock1LOD2, rock1LOD0, rock2Mesh, rock1LOD3],
   );
 
+  const mediumPool = useMemo<ScatterPoolEntry[]>(
+    () => [
+      { geometry: rock1LOD0.geometry, material: rock1LOD0.material },
+      { geometry: rock2Mesh.geometry, material: rock2Mesh.material },
+      { geometry: rock3Mesh.geometry, material: rock3Mesh.material },
+    ],
+    [rock1LOD0, rock2Mesh, rock3Mesh],
+  );
+  const mediumSpecs = useMemo(
+    () =>
+      buildScatterSpecs({
+        count: 14,
+        pool: mediumPool,
+        xRange: [-9.5, 9.5],
+        yRange: [-5.8, 5.8],
+        zRange: [-6, -9.5],
+        scaleRange: [1.1, 2.0],
+        floatAmpRange: [0.05, 0.09],
+        floatPeriodRange: [11, 18],
+        driftAmpRange: [0.02, 0.035],
+        driftPeriodRange: [18, 28],
+        rotationSpeedRange: [0.002, 0.005],
+        keyPrefix: "medium",
+        edgeBias: true,
+      }),
+    [mediumPool],
+  );
+
+  const smallPool = useMemo<ScatterPoolEntry[]>(
+    () => [
+      { geometry: rock1LOD2.geometry, material: rock1LOD0.material },
+      { geometry: rock1LOD3.geometry, material: rock1LOD0.material },
+      { geometry: rock2Mesh.geometry, material: rock2Mesh.material },
+      { geometry: rock3Mesh.geometry, material: rock3Mesh.material },
+    ],
+    [rock1LOD2, rock1LOD3, rock1LOD0, rock2Mesh, rock3Mesh],
+  );
+  const smallSpecs = useMemo(
+    () =>
+      buildScatterSpecs({
+        count: 58,
+        pool: smallPool,
+        xRange: [-11.5, 11.5],
+        yRange: [-6.8, 6.8],
+        zRange: [-9, -15],
+        scaleRange: [0.5, 1.1],
+        floatAmpRange: [0.04, 0.08],
+        floatPeriodRange: [10, 17],
+        driftAmpRange: [0.015, 0.03],
+        driftPeriodRange: [15, 24],
+        rotationSpeedRange: [0.003, 0.007],
+        keyPrefix: "small",
+        edgeBias: true,
+      }),
+    [smallPool],
+  );
+
   return (
     <>
       {specs.map((spec) => (
         <Asteroid key={spec.key} spec={spec} />
       ))}
+      {mediumSpecs.map((spec) => (
+        <Asteroid key={spec.key} spec={spec} />
+      ))}
+      {smallSpecs.map((spec) => (
+        <Asteroid key={spec.key} spec={spec} />
+      ))}
+      <MicroAsteroids geometry={rock1LOD3.geometry} material={rock1LOD0.material} />
     </>
   );
 }
 
-// ─── STARFIELD ───────────────────────────────────────────────────────────────
-// Real photograph reference (NASA-style deep-field), not a game particle
-// system: tiny hard-edged circular points, almost all white, a very small
-// fraction faintly blue/yellow-tinted, no glow/bloom/soft sprites anywhere.
-// Point size is specified directly in CSS pixels (see uPixelRatio below) and
-// held constant regardless of camera distance — realistic stars don't get
-// visibly bigger as the camera drifts a few units, so `sizeAttenuation`-style
-// perspective scaling is deliberately not used.
 const STAR_VERTEX_SHADER = /* glsl */ `
   attribute float aSize;
   attribute vec3 aColor;
+  attribute float aTwinklePhase;
   uniform float uPixelRatio;
+  uniform float uTime;
   varying vec3 vColor;
+  varying float vTwinkle;
   void main() {
     vColor = aColor;
+    vTwinkle = 0.82 + 0.18 * sin(uTime * 0.6 + aTwinklePhase * 6.2831853);
     vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mvPosition;
     gl_PointSize = aSize * uPixelRatio;
   }
 `;
-// Hard `discard` past radius 0.5 — a crisp circular cutout with no feathered
-// alpha falloff, so there is no soft/blurry/glow edge at any size.
 const STAR_FRAGMENT_SHADER = /* glsl */ `
   precision mediump float;
   varying vec3 vColor;
+  varying float vTwinkle;
   void main() {
     vec2 centered = gl_PointCoord - vec2(0.5);
     if (dot(centered, centered) > 0.25) discard;
-    gl_FragColor = vec4(vColor, 1.0);
+    gl_FragColor = vec4(vColor * vTwinkle, 1.0);
   }
 `;
 
@@ -389,25 +476,6 @@ interface StarLayerData {
   speed: number;
 }
 
-// One depth layer of the starfield: a tiled, seamlessly-wrapping field of
-// THREE.Points. Two copies of the same geometry sit side by side inside a
-// group (`width` apart, exactly matching the geometry's own random spread),
-// and only the group's `position.x` is ever touched per frame.
-//
-// Everything else — the Float32Arrays, the BufferGeometry, the
-// ShaderMaterial — is built exactly once, on the very first useFrame tick,
-// and stored in a plain ref (`dataRef`), never in React state. This is
-// deliberately NOT a useMemo(): useMemo still re-runs its factory whenever
-// its dependency values change identity, and this component has no props
-// that should ever legitimately do that mid-session, so building inside the
-// render loop's first tick (which never re-executes, and is completely
-// outside React's render/commit cycle) is what actually guarantees the
-// geometry is independent of every possible React re-render — including
-// ones unrelated to this component (e.g. a parent re-rendering for a page
-// scroll reason that has nothing to do with the starfield). Steady-state,
-// every subsequent frame does exactly one thing: advance and wrap
-// `group.position.x` — no allocations, no attribute writes, no state
-// updates.
 function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec }: StarLayerProps) {
   const group = useRef<THREE.Group>(null);
   const tileA = useRef<THREE.Points>(null);
@@ -418,8 +486,6 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
     if (!dataRef.current) {
       const { camera, viewport, size, gl } = state;
       const vp = viewport.getCurrentViewport(camera, [0, 0, depth]);
-      // 35% margin beyond the visible frustum at this depth so a tile never
-      // runs out of stars at the edges, even on very wide viewports.
       const width = vp.width * 1.35;
       const height = vp.height * 1.35;
       const pxPerUnit = size.width / vp.width;
@@ -428,13 +494,12 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
       const positions = new Float32Array(count * 3);
       const colors = new Float32Array(count * 3);
       const sizes = new Float32Array(count);
+      const twinklePhases = new Float32Array(count);
       for (let i = 0; i < count; i++) {
         positions[i * 3 + 0] = (Math.random() - 0.5) * width;
         positions[i * 3 + 1] = (Math.random() - 0.5) * height;
         positions[i * 3 + 2] = depth + (Math.random() - 0.5) * 2;
 
-        // Almost all white; a very small, subtle fraction pale blue/yellow
-        // — never a saturated color.
         const colorRoll = Math.random();
         let r = 0.95, g = 0.96, b = 1.0;
         if (colorRoll < 0.05) {
@@ -446,19 +511,20 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
         colors[i * 3 + 1] = g;
         colors[i * 3 + 2] = b;
 
-        // ~90% tiny base points, ~9% slightly larger, ~1% "slightly
-        // brighter" (bigger, never glowing) — per the reference composition.
         const sizeRoll = Math.random();
         sizes[i] = sizeRoll < 0.01 ? brightSize : sizeRoll < 0.1 ? midSize : baseSize;
+
+        twinklePhases[i] = Math.random();
       }
 
       const geometry = new THREE.BufferGeometry();
       geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
       geometry.setAttribute("aColor", new THREE.BufferAttribute(colors, 3));
       geometry.setAttribute("aSize", new THREE.BufferAttribute(sizes, 1));
+      geometry.setAttribute("aTwinklePhase", new THREE.BufferAttribute(twinklePhases, 1));
 
       const material = new THREE.ShaderMaterial({
-        uniforms: { uPixelRatio: { value: gl.getPixelRatio() } },
+        uniforms: { uPixelRatio: { value: gl.getPixelRatio() }, uTime: { value: 0 } },
         vertexShader: STAR_VERTEX_SHADER,
         fragmentShader: STAR_FRAGMENT_SHADER,
         transparent: true,
@@ -481,6 +547,7 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
     const g = group.current;
     if (!data || !g) return;
     g.position.x = (g.position.x + data.speed * delta) % data.width;
+    data.material.uniforms.uTime.value = state.clock.getElapsedTime();
   });
 
   useEffect(() => {
@@ -499,16 +566,6 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
 }
 const MemoStarLayer = memo(StarLayer);
 
-// Three depth layers — far (smallest, slowest, densest), middle, and near
-// (largest points, fastest, sparsest) — all drifting left → right at an
-// almost imperceptible speed. The differing depths/speeds, combined with
-// the existing camera parallax in `Rig`, are what create the cinematic
-// depth read; layer placement never overlaps the asteroid field (z ≤ -12,
-// well behind the asteroids at z ≈ -3.6 to -4.8).
-//
-// Props below are literal constants, so `memo` on StarLayer (and on this
-// component itself, from its call site in HeroScene) means page-scroll-
-// driven re-renders of ancestors never propagate into this subtree at all.
 function Starfield() {
   return (
     <>
@@ -520,26 +577,7 @@ function Starfield() {
 }
 const MemoStarfield = memo(Starfield);
 
-// ─── CINEMATIC ATMOSPHERE ────────────────────────────────────────────────────
-// Replaces the asteroid field visually (see ASTEROIDS_ENABLED above) with an
-// elegant, minimal space atmosphere — soft aurora/nebula, a faint center
-// glow, a slow radar sweep, and a few drifting dust motes. Everything here is
-// pure procedural geometry/shaders (no textures fetched over the network, no
-// GLTF), so none of it needs Suspense and all of it is ready on the very
-// first frame — satisfying "background ready before hero text appears" for
-// free, the same way Starfield already did.
-//
-// Every material below follows the same rule the rest of this file already
-// established for AsteroidField/StarLayer: build the geometry/material
-// exactly ONCE (inside the first useFrame tick, cached in a ref — never
-// useMemo, which can re-run on unrelated re-renders) and, every frame after
-// that, touch nothing but a uniform value or a transform — never rebuild
-// geometry, never allocate.
 
-// A soft, slowly-morphing glow blob — reused for BOTH the aurora (behind the
-// headline) and the nebula (a second, larger/fainter/slower layer elsewhere
-// in the frame) via different props, rather than two separate shaders for
-// what is visually the same technique at different settings.
 const AURORA_VERTEX_SHADER = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -557,8 +595,6 @@ const AURORA_FRAGMENT_SHADER = /* glsl */ `
   void main() {
     vec2 uv = vUv - 0.5;
     float t = uTime * uSpeed;
-    // Two soft, independently-drifting blobs whose overlap is what reads as
-    // "morphing" — no noise texture needed, just slow sine-warped offsets.
     vec2 c1 = vec2(sin(t * 0.7) * 0.18, cos(t * 0.5) * 0.12);
     vec2 c2 = vec2(sin(t * 0.42 + 2.1) * 0.22, cos(t * 0.6 + 1.3) * 0.16);
     float d1 = length(uv - c1);
@@ -576,12 +612,20 @@ interface AuroraData {
 function Aurora({
   position,
   scale,
+  scaleX,
+  scaleY,
+  rotationZ,
   color,
   opacity,
   speed,
 }: {
   position: [number, number, number];
-  scale: number;
+  /** Uniform fallback when scaleX/scaleY are omitted. */
+  scale?: number;
+  scaleX?: number;
+  scaleY?: number;
+  /** Radians — tilts the elongated band diagonally across the frame. */
+  rotationZ?: number;
   color: string;
   opacity: number;
   speed: number;
@@ -621,17 +665,17 @@ function Aurora({
     };
   }, []);
 
-  return <mesh ref={mesh} position={position} scale={scale} />;
+  return (
+    <mesh
+      ref={mesh}
+      position={position}
+      scale={[scaleX ?? scale ?? 1, scaleY ?? scale ?? 1, 1]}
+      rotation={[0, 0, rotationZ ?? 0]}
+    />
+  );
 }
 const MemoAurora = memo(Aurora);
 
-// Soft center glow — a round bloom blended with a taller, narrower "shaft"
-// at the same origin, together reading as "a soft light source with a
-// faint volumetric column" without an actual raymarched volumetric-light
-// technique (unnecessary weight for how subtle this needs to be). Built
-// from a single procedurally-generated radial-gradient CanvasTexture
-// (created once, not per frame) rather than a custom shader — this element
-// is meant to be near-static, so there's no morphing math to justify one.
 function createRadialGlowTexture(): THREE.CanvasTexture {
   const size = 256;
   const canvas = document.createElement("canvas");
@@ -669,7 +713,6 @@ function CenterGlow({ position }: { position: [number, number, number] }) {
       if (round.current) round.current.material = roundMaterial;
       if (shaft.current) shaft.current.material = shaftMaterial;
     }
-    // Barely-there breathing — "blend naturally", not "pulse".
     const t = clock.getElapsedTime();
     const breathe = 0.85 + Math.sin(t * 0.15) * 0.15;
     dataRef.current.roundMaterial.opacity = 0.16 * breathe;
@@ -692,11 +735,6 @@ function CenterGlow({ position }: { position: [number, number, number] }) {
   );
 }
 
-// Radar sweep — a single rotating "comet tail" wedge (bright at its leading
-// edge, fading out over ~35% of a turn going backward, hard-cut ahead of
-// it) centered on the same point as the orbit rings' node. One full
-// rotation every 15-20s; opacity stays under 8% (see uOpacity below) so it
-// reads as ambient motion, never as a literal "scanning" sci-fi HUD.
 const RADAR_VERTEX_SHADER = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -714,11 +752,10 @@ const RADAR_FRAGMENT_SHADER = /* glsl */ `
     float dist = length(uv);
     if (dist > 0.5) discard;
     float angle = atan(uv.y, uv.x);
-    // Trail fades out over ~35% of a turn behind the leading edge (angle 0);
-    // nothing ahead of the leading edge at all (hard cut, angle > 0).
     float trail = angle > 0.0 ? 0.0 : clamp(1.0 + angle / (3.14159265 * 0.35), 0.0, 1.0);
     float radial = smoothstep(0.5, 0.08, dist);
-    gl_FragColor = vec4(uColor, trail * radial * uOpacity);
+    float edge = smoothstep(0.05, 0.0, abs(angle)) * 1.6;
+    gl_FragColor = vec4(uColor, (trail + edge) * radial * uOpacity);
   }
 `;
 const RADAR_PERIOD_S = 18; // within the requested 15-20s window
@@ -736,7 +773,7 @@ function RadarSweep({ position }: { position: [number, number, number] }) {
     if (!dataRef.current) {
       const geometry = new THREE.PlaneGeometry(1, 1);
       const material = new THREE.ShaderMaterial({
-        uniforms: { uColor: { value: new THREE.Color("#5b9dff") }, uOpacity: { value: 0.07 } },
+        uniforms: { uColor: { value: new THREE.Color("#6fa8ff") }, uOpacity: { value: 0.22 } },
         vertexShader: RADAR_VERTEX_SHADER,
         fragmentShader: RADAR_FRAGMENT_SHADER,
         transparent: true,
@@ -761,15 +798,9 @@ function RadarSweep({ position }: { position: [number, number, number] }) {
     };
   }, []);
 
-  return <mesh ref={mesh} position={position} scale={9} />;
+  return <mesh ref={mesh} position={position} scale={11} />;
 }
 
-// Dust — a handful of soft, independently-floating motes (deliberately NOT
-// the Starfield technique: dust needs soft/blurred edges and gentle
-// multi-axis drift, where stars need crisp points and a one-directional
-// scroll). Motion is entirely in the vertex shader (a per-point sine drift
-// keyed off a random "seed" attribute) so, same as the aurora/radar above,
-// the only per-frame CPU-side work is a single uTime uniform write.
 const DUST_VERTEX_SHADER = /* glsl */ `
   attribute float aSeed;
   uniform float uTime;
@@ -781,16 +812,11 @@ const DUST_VERTEX_SHADER = /* glsl */ `
     pos.y += cos(uTime * 0.04 + aSeed * 3.14159) * 0.5;
     vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
-    gl_PointSize = (5.0 + aSeed * 3.0) * uPixelRatio;
+    gl_PointSize = (1.0 + aSeed * 7.0) * uPixelRatio;
     vSeed = aSeed;
   }
 `;
 const DUST_FRAGMENT_SHADER = /* glsl */ `
-  // highp, not mediump — uTime is also a uniform in DUST_VERTEX_SHADER,
-  // which (per GLSL ES spec) defaults floats to highp with no explicit
-  // precision statement; mediump here previously created a precision
-  // mismatch WebGL rejects at link time ("Precisions of uniform 'uTime'
-  // differ between VERTEX and FRAGMENT shaders").
   precision highp float;
   uniform float uTime;
   varying float vSeed;
@@ -802,7 +828,7 @@ const DUST_FRAGMENT_SHADER = /* glsl */ `
     gl_FragColor = vec4(0.75, 0.85, 1.0, shape * twinkle * 0.06);
   }
 `;
-const DUST_COUNT = 40;
+const DUST_COUNT = 64;
 
 interface DustData {
   geometry: THREE.BufferGeometry;
@@ -852,10 +878,6 @@ function Dust() {
   return <points ref={points} />;
 }
 
-// ─── CAMERA RIG ──────────────────────────────────────────────────────────────
-// Multiple slow, layered sine periods (never an obviously repeating loop)
-// plus a lerped, low-strength mouse-parallax offset, smoothed and never
-// snapping. Amplitudes kept deliberately tiny — "almost imperceptible."
 function Rig({ mouse }: { mouse: React.RefObject<{ x: number; y: number }> }) {
   useFrame(({ camera, clock }: RootState) => {
     const t = clock.getElapsedTime();
@@ -870,33 +892,20 @@ function Rig({ mouse }: { mouse: React.RefObject<{ x: number; y: number }> }) {
   return null;
 }
 
-// Cinematic hero backdrop. As of ASTEROIDS_ENABLED = false above, this is a
-// minimal, elegant space atmosphere — the realistic THREE.Points starfield
-// (Starfield, unchanged and still the "tiny star" look), a soft morphing
-// aurora + fainter nebula layer, a faint center bloom/volumetric glow behind
-// the orbit stage's node, a slow radar sweep, and a handful of drifting dust
-// motes — with the same slow cinematic camera drift and mouse parallax as
-// before (Rig, untouched). Rendered as a background layer behind the
-// existing orbital radar stage (HeroStage in App.tsx) — see HeroSceneGate
-// for the desktop/reduced-motion gating that decides whether this mounts at
-// all. AsteroidField still renders too, gated behind ASTEROIDS_ENABLED, so
-// flipping that one flag restores the previous scene exactly.
-//
-// Suspense sits HERE, inside the Canvas, wrapped only around AsteroidField —
-// not around the whole scene, and not above the Canvas in HeroSceneGate.
-// AsteroidField is the only part of this scene that depends on any network
-// asset (useGLTF/useTexture); every other element here — Starfield and all
-// of the new atmosphere below — is pure procedural geometry/shaders with no
-// external files and no Suspense dependency at all, so it's guaranteed
-// ready on the first frame regardless of the asteroid toggle. Putting
-// Suspense above the Canvas (the previous setup, before an earlier fix)
-// meant React held back the Canvas's own DOM node — the whole scene,
-// lighting included — until every GLTF/texture had finished loading, which
-// is what produced a "text appears, then the whole scene pops in a moment
-// later" delay; the boundary stays scoped to AsteroidField alone so that
-// can never happen again, asteroids on or off.
 export default function HeroScene() {
   const mouse = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => setActive(!!entries[0]?.isIntersecting), {
+      rootMargin: "200px 0px 200px 0px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     function onMove(e: PointerEvent) {
@@ -908,29 +917,19 @@ export default function HeroScene() {
   }, []);
 
   return (
+    <div ref={containerRef} style={{ position: "absolute", inset: 0 }}>
     <Canvas
       shadows={ASTEROIDS_ENABLED}
-      frameloop="always"
+      frameloop={active ? "always" : "demand"}
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       camera={{ position: [0, 0, 8], fov: 50 }}
-      style={{ position: "absolute", inset: 0 }}
     >
-      {/* This light rig exists solely for AsteroidField's PBR materials
-          (real photogrammetry rocks need real lighting to read correctly) —
-          none of the new atmosphere below uses standard/lit materials at
-          all (Points, Sprites, and unlit ShaderMaterials all ignore scene
-          lights entirely), so the shadow-casting machinery specifically is
-          gated off with the asteroid toggle (see ASTEROIDS_ENABLED above):
-          zero shadow-casters means a shadow-map pass would be pure wasted
-          GPU work. The lights themselves stay mounted either way — cheap,
-          and harmless to anything unlit — so flipping the toggle back on
-          needs no changes here. */}
-      <ambientLight intensity={0.14} color="#33507f" />
+      <ambientLight intensity={0.13} color="#2b4270" />
       <hemisphereLight args={["#fff3e2", "#141c34", 0.16]} />
       <directionalLight
         position={[6, 5, 6]}
-        intensity={1.3}
+        intensity={1.45}
         color="#fff3e2"
         castShadow={ASTEROIDS_ENABLED}
         shadow-mapSize={[1024, 1024]}
@@ -941,24 +940,16 @@ export default function HeroScene() {
         shadow-camera-top={10}
         shadow-camera-bottom={-10}
       />
-      <pointLight position={[-6, -3, -4]} intensity={0.38} color="#3b82f6" />
+      <pointLight position={[-8, -1, -1]} intensity={0.42} color="#3b82f6" />
+      <pointLight position={[8, -1, -1]} intensity={0.4} color="#4d7fe0" />
 
       <MemoStarfield />
 
-      {/* Aurora behind the headline (upper frame) + a fainter, larger,
-          slower nebula layer further back and off-center — same component,
-          different tuning, so they read as two distinct atmospheric layers
-          rather than one obvious blob. Both well under the requested
-          6-10% opacity. */}
-      <MemoAurora position={[0, 2.2, -14]} scale={14} color="#5b8fff" opacity={0.09} speed={1} />
-      <MemoAurora position={[-3, -0.5, -20]} scale={22} color="#4d7fe0" opacity={0.05} speed={0.6} />
+      <MemoAurora position={[0, 2.2, -14]} scaleX={17} scaleY={9} rotationZ={0.55} color="#5b8fff" opacity={0.11} speed={1} />
+      <MemoAurora position={[-3, -0.5, -20]} scaleX={27} scaleY={13} rotationZ={0.5} color="#4d7fe0" opacity={0.065} speed={0.6} />
+      <MemoAurora position={[4.2, -2.6, -24]} scaleX={23} scaleY={11} rotationZ={0.6} color="#6f9cff" opacity={0.05} speed={0.5} />
 
-      {/* Soft bloom + faint volumetric column behind the orbit stage's
-          center node (HeroStage in App.tsx renders that node in DOM/SVG at
-          roughly this same screen position; this glow sits behind it in
-          the WebGL layer). */}
       <CenterGlow position={[0, -1.8, -3]} />
-      <RadarSweep position={[0, -1.8, -2.8]} />
 
       <Dust />
 
@@ -969,5 +960,6 @@ export default function HeroScene() {
       )}
       <Rig mouse={mouse} />
     </Canvas>
+    </div>
   );
 }

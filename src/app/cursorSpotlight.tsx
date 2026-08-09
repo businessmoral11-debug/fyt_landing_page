@@ -1,11 +1,5 @@
 import { useEffect, useRef } from "react";
 
-// A soft light that follows the pointer, layered above every section via a
-// fixed, pointer-events:none overlay with `mix-blend-mode: screen` — it only
-// ever brightens whatever's beneath it, never obscures text or blocks clicks.
-// Position is written straight to the DOM via a ref on every mousemove
-// (no setState) so this never triggers a React re-render of the page tree.
-// Desktop-only ("pointer: fine") and skipped entirely under reduced motion.
 export function CursorSpotlight() {
   const ref = useRef<HTMLDivElement>(null);
 

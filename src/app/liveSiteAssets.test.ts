@@ -17,8 +17,6 @@ function expectRealFile(relPath: string) {
 }
 
 describe("hero assets", () => {
-  // The hero video itself is hotlinked, not self-hosted — see VIDEO_URLS.hero
-  // in liveSiteContent.ts. Only the static thumbnail is downloaded locally.
   const files = ["hero/IMG_3065-scaled.jpg"];
   it.each(files)("%s exists and is non-empty", (f) => expectRealFile(f));
 });
@@ -92,9 +90,6 @@ describe("named testimonial photo assets", () => {
   it.each(files)("%s exists and is non-empty", (f) => expectRealFile(f));
 });
 
-// Testimonial videos are hotlinked, not self-hosted — see VIDEO_URLS.testimonials
-// in liveSiteContent.ts (14 URLs, tested there). No local files/directory for
-// this category.
 
 describe("payout certificate carousel assets", () => {
   const jpgNums = [6, 7, 8, 9, 11, 12, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
@@ -149,8 +144,6 @@ describe("UI/social icon assets", () => {
 });
 
 describe("misc assets", () => {
-  // 3 of the originally-downloaded misc files were videos, now hotlinked
-  // instead — see VIDEO_URLS.misc in liveSiteContent.ts.
   const files = [
     "misc/Frame-1000006347.png",
     "misc/Line-1.png",

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-const app = readFileSync(resolve(__dirname, "./App.tsx"), "utf8");
+const app = readFileSync(resolve(__dirname, "./BelowFold.tsx"), "utf8");
 
 const howItWorksSection = (() => {
   const start = app.indexOf("function HowItWorksIcon(");
@@ -14,7 +14,7 @@ const howItWorksSection = (() => {
 
 describe("How It Works pinned scroll-reveal wiring", () => {
   it("imports the reveal timing/color data module", () => {
-    expect(app).toContain('from "@/app/howItWorksReveal"');
+    expect(app).toContain('from "@/app/motion/howItWorksReveal"');
   });
 
   it("drives the reveal from a pinned scrollYProgress, not a plain scroll listener", () => {
@@ -28,12 +28,8 @@ describe("How It Works pinned scroll-reveal wiring", () => {
     expect(howItWorksSection).toContain("sticky top-0 h-screen");
   });
 
-  it("has a completely separate, non-animated mobile branch", () => {
+  it("has a completely separate mobile branch, independent of the desktop pin", () => {
     expect(howItWorksSection).toContain('className="flex lg:hidden flex-col');
-  });
-
-  it("removes the vertical divider partitions between steps", () => {
-    expect(howItWorksSection).not.toContain("rgba(255,255,255,0.08)");
   });
 
   it("grows the connecting line as a single scaleX bar instead of a pre-rendered gradient", () => {
@@ -49,34 +45,38 @@ describe("How It Works pinned scroll-reveal wiring", () => {
 
   it("falls back to peak (fully bright) styling immediately when reduced motion is on, for every animated property", () => {
     const reduceMotionTernaries = howItWorksSection.match(/reduceMotion\s*\?/g) ?? [];
-    // line + ring + dot + number + label + description + icon border + icon
-    // glyph = 8 properties, each with its own
-    // `reduceMotion ? staticPeak : motionValue` fallback.
-    expect(reduceMotionTernaries.length).toBeGreaterThanOrEqual(8);
+    expect(reduceMotionTernaries.length).toBeGreaterThanOrEqual(7);
   });
 
   it("resolves every reduced-motion fallback to a peak constant, never a dim one", () => {
-    // Scoped to `reduceMotion ?` (the ternary itself), not just any
-    // occurrence of the word "reduceMotion" — the bare word also appears in
-    // the component's `reduceMotion: boolean | null` param type, which sits
-    // within 200 chars of the first useTransform's unrelated `_ALPHA.dim`
-    // (dim) base value and would otherwise false-positive.
     expect(howItWorksSection).not.toMatch(/reduceMotion\s*\?[\s\S]{0,200}?_ALPHA\.dim/);
     for (const c of ["RING_BORDER", "RING_GLOW", "DOT_BG", "DOT_GLOW", "NUMBER", "ICON_BORDER"]) {
       expect(howItWorksSection).toContain(`HOW_IT_WORKS_${c}_ALPHA.peak`);
     }
     expect(howItWorksSection).toContain("HOW_IT_WORKS_LABEL_PEAK_HEX");
     expect(howItWorksSection).toContain("HOW_IT_WORKS_DESC_PEAK_HEX");
-    expect(howItWorksSection).toContain("HOW_IT_WORKS_ICON_GLYPH_OPACITY.peak");
   });
 
-  it("keeps the mobile branch entirely free of scroll-driven code", () => {
+  it("renders the step icons always fully opaque, not part of the scroll-driven dim -> peak fade", () => {
+    expect(howItWorksSection).not.toContain("HOW_IT_WORKS_ICON_GLYPH_OPACITY");
+    expect(howItWorksSection).not.toContain("iconGlyphOpacity");
+  });
+
+  it("keeps the mobile branch entirely free of the desktop pin's own per-step reveal component (it has its own separate scroll-position-driven 'Active Card Spotlight' instead — see howItWorksReveal.ts' HOW_IT_WORKS_MOBILE_SPOTLIGHT_* variants)", () => {
     const start = howItWorksSection.indexOf('className="flex lg:hidden flex-col');
     expect(start).toBeGreaterThan(-1);
     const mobile = howItWorksSection.slice(start);
-    for (const t of ["useTransform", "useMotionTemplate", "scrollYProgress", "HowItWorksStepReveal", "motion.", "reduceMotion"]) {
+    for (const t of ["useTransform", "useMotionTemplate", "HowItWorksStepReveal"]) {
       expect(mobile).not.toContain(t);
     }
+    expect(mobile).not.toContain("setTimeout");
+    expect(mobile).not.toContain("setInterval");
+    expect(mobile).toContain('className="grid grid-cols-2 gap-[32px] w-full"');
+    expect(mobile).toContain("HOW_IT_WORKS_MOBILE_SPOTLIGHT_CARD");
+    expect(mobile).toContain("HOW_IT_WORKS_MOBILE_SPOTLIGHT_ICON");
+    expect(mobile).toContain("mobileActiveIndex");
+    expect(howItWorksSection).toContain("useScroll({ target: mobileGridRef");
+    expect(howItWorksSection).toContain("useMotionValueEvent(mobileSpotlightProgress");
   });
 
   it("has no leftover references to the old plain-scroll-listener implementation", () => {

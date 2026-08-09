@@ -1,12 +1,8 @@
-// Generates src/app/heroLayers.ts from the v2 desktop spec CSS.
-// Faithfully extracts the hero "god-rays" background layers (cone, rays, dust,
-// bloom, vignette, text-scrim) as typed data consumed by the Hero component.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const SPEC = "docs/specs/v2/desktop-view/FYT - Landing Page.css";
 const css = readFileSync(SPEC, "utf8").split(/\r?\n/);
 
-// Split into blocks delimited by `/* Name */` comment lines.
 const blocks = [];
 let cur = null;
 for (const ln of css) {

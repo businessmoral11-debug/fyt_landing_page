@@ -1,33 +1,17 @@
 #!/usr/bin/env node
-// Compares src/app/pricing.ts against the live fundingyourtrades.com pricing
-// widget config and reports any drift. With --write, surgically patches only
-// the priceOld/priceNew numbers in place, anchored on each row's unique
-// productId — it never touches product IDs, rule fields, comments, or
-// src/app/pricing.test.ts. Run: node scripts/check-pricing-drift.mjs [--write]
-//
-// Why the FIRST PRODUCTS_CONFIG block on the live page: as of 2026-07-28 the
-// homepage embeds two separate `const PRODUCTS_CONFIG = [...]` declarations
-// in two different inline <script> tags, both plain global scripts with no
-// isolating IIFE/module wrapper. Both declare `const PRODUCTS_CONFIG` in the
-// page's shared top-level lexical scope, so the second is a duplicate `const`
-// — a SyntaxError that stops that whole script block before any of its code
-// (including the array literal itself) executes. The first block is the one
-// that actually initializes window.__FYT_state and powers the live widget.
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { extractArrayLiteral, sanitizeToJson } from "./parseProductsConfig.mjs";
-import { STEP_PLANS, STEP_SIZES, getEntry } from "../src/app/pricing.ts";
+import { STEP_PLANS, STEP_SIZES, getEntry } from "../src/app/data/pricing.ts";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const PRICING_TS_PATH = join(__dirname, "..", "src", "app", "pricing.ts");
+const PRICING_TS_PATH = join(__dirname, "..", "src", "app", "data", "pricing.ts");
 const LIVE_URL = "https://fundingyourtrades.com/";
 const MARKER = "const PRODUCTS_CONFIG =";
 const STEPS = ["1-Step", "2-Step", "Instant"];
 const PLATFORMS = ["match-trader", "platform-5"];
 
-// Mirrors the mapping already documented in src/app/pricing.ts's own comments
-// (e.g. "fyt · 1-STEP", "fyt-prime · 1-STEP", "fyt-pro · 2-STEP-∞").
 const PROD_MAP = {
   "1-Step": { classic: "fyt", prime: "fyt-prime" },
   "2-Step": { classic: "fyt", prime: "fyt-pro" },
