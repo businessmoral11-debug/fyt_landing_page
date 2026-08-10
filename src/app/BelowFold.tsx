@@ -3206,7 +3206,7 @@ function Testimonials() {
         <div className="content-stretch flex flex-col items-center px-[20px] pb-[48px] pt-[40px] lg:px-[88px] lg:pb-[120px] lg:pt-[64px] relative w-full">
           <motion.div variants={TESTIMONIAL_CTA_REVEAL} initial={prefersReducedMotion ? false : "hidden"} animate={revealed ? "show" : "hidden"}>
             <a href="#challenge" className="bg-[#3b82f6] flex items-center justify-center px-[32px] py-[14px] rounded-[8px] shrink-0 no-underline">
-              <p className="font-['Inter:Medium',sans-serif] font-medium text-[16px] leading-[19px] text-white whitespace-nowrap">Join 14,000+ Traders</p>
+              <p className="font-['Inter:Medium',sans-serif] font-medium text-[16px] leading-[19px] text-white whitespace-nowrap">Join 19,000+ Traders</p>
             </a>
           </motion.div>
         </div>
