@@ -88,9 +88,9 @@ describe("Comparison Table difference-is-clear components", () => {
     expect(app).toContain("function DifferenceMobilePinnedCrossfade(");
     const mobilePinnedBody = sliceToNextFunction(app, "function DifferenceMobilePinnedCrossfade(");
     expect(mobilePinnedBody).toContain('useScroll({ target: scrollRef, offset: ["start start", "end end"] })');
-    expect(mobilePinnedBody).toContain("DIFFERENCE_PIN_SCROLL_HEIGHT_VH");
-    expect(mobilePinnedBody).toContain("DIFFERENCE_HEADING_EXIT_REVEAL");
-    expect(mobilePinnedBody).toContain("DIFFERENCE_CONTENT_ENTER_REVEAL");
+    expect(mobilePinnedBody).toContain("DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH");
+    expect(mobilePinnedBody).toContain("DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL");
+    expect(mobilePinnedBody).toContain("DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL");
     expect(mobilePinnedBody).toContain("h-[100dvh]");
   });
 

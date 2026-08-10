@@ -201,6 +201,9 @@ import {
   DIFFERENCE_PIN_SCROLL_HEIGHT_VH,
   DIFFERENCE_HEADING_EXIT_REVEAL,
   DIFFERENCE_CONTENT_ENTER_REVEAL,
+  DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH,
+  DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL,
+  DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL,
   type DifferenceCrossfadeReveal,
 } from "@/app/motion/differenceReveal";
 
@@ -3454,20 +3457,20 @@ function DifferenceMobilePinnedCrossfade({ reduceMotion }: { reduceMotion: boole
   const { scrollYProgress } = useScroll({ target: scrollRef, offset: ["start start", "end end"] });
 
   return (
-    <div ref={scrollRef} className="lg:hidden relative w-full" style={{ height: `${DIFFERENCE_PIN_SCROLL_HEIGHT_VH}vh` }}>
+    <div ref={scrollRef} className="lg:hidden relative w-full" style={{ height: `${DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH}vh` }}>
       <div className="sticky top-0 min-h-[100dvh] flex flex-col items-center justify-start pt-[96px]">
         <div className="relative w-full overflow-x-hidden">
           <DifferenceScrollLayer
             className="absolute inset-0 flex items-center justify-center"
             progress={scrollYProgress}
-            reveal={DIFFERENCE_HEADING_EXIT_REVEAL}
+            reveal={DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL}
           >
             <DifferenceHeadingText reduceMotion={reduceMotion} />
           </DifferenceScrollLayer>
           <DifferenceScrollLayer
             className="flex flex-col gap-[20px] items-center w-full"
             progress={scrollYProgress}
-            reveal={DIFFERENCE_CONTENT_ENTER_REVEAL}
+            reveal={DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL}
           >
             <DifferenceAdvantageBlock />
             <DifferenceComparisonTableMobile />
