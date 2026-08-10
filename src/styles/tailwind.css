@@ -270,6 +270,11 @@ body::-webkit-scrollbar {
   inset: 0;
   pointer-events: none;
 }
+@media (max-width: 1023px) {
+  .hero-css-starfield {
+    display: none;
+  }
+}
 .hero-css-starfield > div {
   position: absolute;
   inset: 0;
