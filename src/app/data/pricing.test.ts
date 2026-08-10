@@ -117,7 +117,15 @@ describe("known product IDs and prices (spot checks against live config)", () =>
   it("Instant Plus match-trader $5K → 20619 @ 109 with 45% off", () => {
     const e = getEntry("Instant", "plus", "match-trader", 5000)!;
     expect(e.productId).toBe(20619);
+    expect(e.priceOld).toBe(109);
     expect(e.priceNew).toBe(59.95);
+  });
+  it("Instant Plus platform-5 sizes use list prices with 45% off", () => {
+    expect(getEntry("Instant", "plus", "platform-5", 5000)).toMatchObject({ productId: 20620, priceOld: 119, priceNew: 65.45 });
+    expect(getEntry("Instant", "plus", "platform-5", 10000)).toMatchObject({ productId: 20614, priceOld: 219, priceNew: 120.45 });
+    expect(getEntry("Instant", "plus", "platform-5", 25000)).toMatchObject({ productId: 20616, priceOld: 249, priceNew: 136.95 });
+    expect(getEntry("Instant", "plus", "platform-5", 50000)).toMatchObject({ productId: 20618, priceOld: 479, priceNew: 263.45 });
+    expect(getEntry("Instant", "plus", "platform-5", 100000)).toMatchObject({ productId: 20622, priceOld: 949, priceNew: 521.95 });
   });
   it("Instant Prime match-trader $100K → 22210 @ 1009/554.95", () => {
     const e = getEntry("Instant", "prime", "match-trader", 100000)!;
@@ -130,6 +138,13 @@ describe("known product IDs and prices (spot checks against live config)", () =>
     expect(p5.productId).toBe(22205);
     expect(p5.priceOld).toBe(1009);
     expect(p5.priceNew).toBe(605.4);
+  });
+  it("Instant Prime match-trader sizes match live PRODUCTS_CONFIG", () => {
+    expect(getEntry("Instant", "prime", "match-trader", 5000)).toMatchObject({ productId: 22214, priceOld: 129, priceNew: 70.95 });
+    expect(getEntry("Instant", "prime", "match-trader", 10000)).toMatchObject({ productId: 22213, priceOld: 239, priceNew: 131.45 });
+    expect(getEntry("Instant", "prime", "match-trader", 25000)).toMatchObject({ productId: 22212, priceOld: 309, priceNew: 169.95 });
+    expect(getEntry("Instant", "prime", "match-trader", 50000)).toMatchObject({ productId: 22211, priceOld: 599, priceNew: 329.45 });
+    expect(getEntry("Instant", "prime", "match-trader", 100000)).toMatchObject({ productId: 22210, priceOld: 1009, priceNew: 554.95 });
   });
   it("Instant Prime uses plain add-to-cart checkout URLs", () => {
     expect(checkoutUrl(22214)).toBe("https://fundingyourtrades.com/checkout/?add-to-cart=22214");

@@ -93,13 +93,14 @@ export const PRICING_DATA: Record<StepId, Partial<Record<PlanId, PlatformTable>>
     ], { explicitSalePrice: true }),
   },
   "Instant": {
+    // List prices from live PRODUCTS_CONFIG; sale = 45% off (NEWFYT)
     plus: build(RULES_INSTANT_PLUS, [
-      { size: 5000, mt: [109, 65.4, 20619], p5: [119, 71.4, 20620] },
-      { size: 10000, mt: [209, 125.4, 20613], p5: [219, 131.4, 20614] },
-      { size: 25000, mt: [239, 143.4, 20615], p5: [249, 149.4, 20616] },
-      { size: 50000, mt: [469, 281.4, 20617], p5: [479, 287.4, 20618] },
-      { size: 100000, mt: [939, 563.4, 20621], p5: [949, 569.4, 20622] },
-    ]),
+      { size: 5000, mt: [109, 59.95, 20619], p5: [119, 65.45, 20620] },
+      { size: 10000, mt: [209, 114.95, 20613], p5: [219, 120.45, 20614] },
+      { size: 25000, mt: [239, 131.45, 20615], p5: [249, 136.95, 20616] },
+      { size: 50000, mt: [469, 257.95, 20617], p5: [479, 263.45, 20618] },
+      { size: 100000, mt: [939, 516.45, 20621], p5: [949, 521.95, 20622] },
+    ], { explicitSalePrice: true }),
     // fyt-pro INSTANT (Prime) — product IDs + sale prices from live PRODUCTS_CONFIG
     prime: build(RULES_INSTANT_PRIME, [
       { size: 5000, mt: [129, 70.95, 22214], p5: [129, 70.95, 22209] },
