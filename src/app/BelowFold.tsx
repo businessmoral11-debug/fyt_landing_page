@@ -500,6 +500,25 @@ function ProveSkillRevealCard({
   );
 }
 
+/**
+ * iPhone Safari scroll-friction diagnostic: the plain, non-Framer equivalent
+ * of ProveSkillRevealCard, rendered permanently at the card's fully-revealed
+ * end state (opacity 1, no offset) -- same className, same children, same
+ * layout box, just no `useTransform`/`motion.div` writing a new inline style
+ * on every scroll-progress tick. Swapped in for the mobile cards only, via
+ * PROVE_SKILL_MOBILE_SCROLL_REVEAL_ENABLED below, to isolate whether that
+ * per-frame style write is what's causing the reported scroll resistance.
+ */
+function ProveSkillStaticCard({ className, children }: { className: string; children: ReactNode }) {
+  return <div className={className}>{children}</div>;
+}
+
+/**
+ * Set to false to run the diagnostic above; true is the normal, shipped
+ * behavior. Only affects the mobile cards -- desktop is untouched either way.
+ */
+const PROVE_SKILL_MOBILE_SCROLL_REVEAL_ENABLED = false;
+
 
 function BlurRevealWords({ text }: { text: string }) {
   const reduceMotion = useReducedMotion();
@@ -618,17 +637,23 @@ function ProveYourSkill() {
               <ProveSkillHeading size="text-[28px]" animate={false} />
             </div>
             <div className="flex flex-col gap-[12px] w-full items-center">
-              {PROVE_SKILL_CARDS.map((c, i) => (
-                <ProveSkillRevealCard
-                  key={c.id}
-                  className="shrink-0"
-                  progress={mobileRevealProgress}
-                  reveal={PROVE_SKILL_MOBILE_CARD_REVEALS[i]}
-                  reduceMotion={reduceMotion}
-                >
-                  <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
-                </ProveSkillRevealCard>
-              ))}
+              {PROVE_SKILL_CARDS.map((c, i) =>
+                PROVE_SKILL_MOBILE_SCROLL_REVEAL_ENABLED ? (
+                  <ProveSkillRevealCard
+                    key={c.id}
+                    className="shrink-0"
+                    progress={mobileRevealProgress}
+                    reveal={PROVE_SKILL_MOBILE_CARD_REVEALS[i]}
+                    reduceMotion={reduceMotion}
+                  >
+                    <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
+                  </ProveSkillRevealCard>
+                ) : (
+                  <ProveSkillStaticCard key={c.id} className="shrink-0">
+                    <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
+                  </ProveSkillStaticCard>
+                ),
+              )}
             </div>
           </div>
         </div>
