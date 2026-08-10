@@ -99,24 +99,25 @@ describe("mirror-live equivalence (identical stats/price, different ID)", () => 
 });
 
 describe("known product IDs and prices (spot checks against live config)", () => {
-  it("2-Step Classic match-trader $100K → 1231 @ 459/275.4", () => {
+  it("2-Step Classic match-trader $100K → 1231 @ 459 with 45% off", () => {
     const e = getEntry("2-Step", "classic", "match-trader", 100000)!;
     expect(e.productId).toBe(1231);
     expect(e.priceOld).toBe(459);
-    expect(e.priceNew).toBe(275.4);
+    expect(e.priceNew).toBe(252.45);
   });
-  it("1-Step Classic match-trader $10K → 1217 @ 114/68.4", () => {
+  it("1-Step Classic match-trader $10K → 1217 @ 114 with 45% off", () => {
     const e = getEntry("1-Step", "classic", "match-trader", 10000)!;
     expect(e.productId).toBe(1217);
     expect(e.priceOld).toBe(114);
+    expect(e.priceNew).toBe(62.7);
   });
   it("1-Step Prime platform-5 $100K → 21263", () => {
     expect(getEntry("1-Step", "prime", "platform-5", 100000)!.productId).toBe(21263);
   });
-  it("Instant Plus match-trader $5K → 20619 @ 109/65.4", () => {
+  it("Instant Plus match-trader $5K → 20619 @ 109 with 45% off", () => {
     const e = getEntry("Instant", "plus", "match-trader", 5000)!;
     expect(e.productId).toBe(20619);
-    expect(e.priceNew).toBe(65.4);
+    expect(e.priceNew).toBe(59.95);
   });
   it("Instant Prime platform-5 $100K → 22205 (same price as match-trader)", () => {
     const p5 = getEntry("Instant", "prime", "platform-5", 100000)!;
@@ -137,9 +138,10 @@ describe("known product IDs and prices (spot checks against live config)", () =>
 });
 
 describe("helpers", () => {
-  it("checkoutUrl builds an absolute fundingyourtrades.com add-to-cart URL", () => {
-    expect(checkoutUrl(1231)).toBe("https://fundingyourtrades.com/checkout/?add-to-cart=1231");
+  it("checkoutUrl builds an absolute fundingyourtrades.com add-to-cart URL with NEWFYT coupon", () => {
+    expect(checkoutUrl(1231)).toBe("https://fundingyourtrades.com/checkout/?add-to-cart=1231&coupon=NEWFYT");
   });
+
   it("fmtSize formats thousands as $NK", () => {
     expect(fmtSize(5000)).toBe("$5K");
     expect(fmtSize(200000)).toBe("$200K");

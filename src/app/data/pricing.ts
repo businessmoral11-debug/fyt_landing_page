@@ -35,12 +35,20 @@ interface Row {
 
 type PlatformTable = Record<PlatformId, Record<number, PricingEntry>>;
 
+/** Display sale price: 45% off the list price (NEWFYT). */
+export const SALE_DISCOUNT_FRACTION = 0.45;
+
+export function salePrice(priceOld: number): number {
+  return Math.round(priceOld * (1 - SALE_DISCOUNT_FRACTION) * 100) / 100;
+}
+
 function build(rules: Rules, rows: Row[]): PlatformTable {
   const out: PlatformTable = { "match-trader": {}, "platform-5": {} };
   for (const r of rows) {
     const split = r.split ?? rules.split;
-    out["match-trader"][r.size] = { ...rules, split, priceOld: r.mt[0], priceNew: r.mt[1], productId: r.mt[2] };
-    out["platform-5"][r.size] = { ...rules, split, priceOld: r.p5[0], priceNew: r.p5[1], productId: r.p5[2] };
+    // Row tuples keep a legacy mid-slot for readability; sale price is always 45% off list.
+    out["match-trader"][r.size] = { ...rules, split, priceOld: r.mt[0], priceNew: salePrice(r.mt[0]), productId: r.mt[2] };
+    out["platform-5"][r.size] = { ...rules, split, priceOld: r.p5[0], priceNew: salePrice(r.p5[0]), productId: r.p5[2] };
   }
   return out;
 }
@@ -144,8 +152,10 @@ export function getEntry(step: StepId, plan: PlanId, platform: PlatformId, size:
 }
 
 const CHECKOUT_BASE = "https://fundingyourtrades.com/checkout/?add-to-cart=";
+export const CHECKOUT_COUPON_CODE = "NEWFYT";
+
 export function checkoutUrl(productId: number): string {
-  return `${CHECKOUT_BASE}${productId}`;
+  return `${CHECKOUT_BASE}${productId}&coupon=${CHECKOUT_COUPON_CODE}`;
 }
 
 export function fmtSize(n: number): string {

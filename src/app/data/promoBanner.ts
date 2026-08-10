@@ -10,7 +10,7 @@ export interface PromoItem {
 }
 
 export const PROMO_ITEMS: PromoItem[] = [
-  { kind: "code", label: "The NEW FYT Deal", text: "45% off + Buy 1 Get 3", code: "NEWFYT" },
+  { kind: "code", label: "The NEW FYT Deal", text: "45% off + 2 Bonus Account", code: "NEWFYT" },
   { kind: "crypto", text: "52.5% Off Everything with Crypto Payment + 3 Accounts", sub: "Crypto Payment" },
   { kind: "live", text: "250 Spots Only" },
 ];

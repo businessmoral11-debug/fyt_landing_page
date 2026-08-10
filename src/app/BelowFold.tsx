@@ -1639,10 +1639,10 @@ function PlanCompareShortcut() {
 const PRICING_ANIMATIONS_ACTIVE_MARGIN_PX = 600;
 
 function Pricing() {
-  const [step, setStep] = useState<StepId>("1-Step");
-  const [plan, setPlan] = useState<PlanId>("classic");
+  const [step, setStep] = useState<StepId>("2-Step");
+  const [plan, setPlan] = useState<PlanId>("prime");
   const [platform, setPlatform] = useState<PlatformId>("match-trader");
-  const [size, setSize] = useState<number>(50000);
+  const [size, setSize] = useState<number>(100000);
   const [showExplainerVideo, setShowExplainerVideo] = useState(false);
   const closeExplainerVideo = useCallback(() => setShowExplainerVideo(false), []);
   const [mobilePanelTab, setMobilePanelTab] = useState<MobilePanelTab>("rules");
@@ -2106,8 +2106,11 @@ function Pricing() {
                 className="self-center font-['Inter:Bold',sans-serif] font-bold text-[12px] leading-[16px] text-center px-[12px] py-[6px] rounded-full"
                 style={{ color: "#16a34a", background: "rgba(22,163,74,0.12)" }}
               >
-                40% Off + A bonus account instantly
+                45% off + 2 Bonus Account
               </span>
+              <p className="self-center font-['Inter:Medium',sans-serif] font-medium text-[12px] leading-[16px] text-center text-[#2563EB]">
+                NEWFYT coupon auto applied
+              </p>
               <motion.div
                 ref={checkoutMagnet.ref}
                 onMouseMove={checkoutMagnet.onMouseMove}

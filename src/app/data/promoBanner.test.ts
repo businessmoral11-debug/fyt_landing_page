@@ -4,7 +4,7 @@ import { formatCountdown, PROMO_ITEMS, PROMO_DEADLINE } from "./promoBanner";
 describe("PROMO_ITEMS", () => {
   it("has exactly 3 items matching the live site's current campaign", () => {
     expect(PROMO_ITEMS).toHaveLength(3);
-    expect(PROMO_ITEMS[0]).toEqual({ kind: "code", label: "The NEW FYT Deal", text: "45% off + Buy 1 Get 3", code: "NEWFYT" });
+    expect(PROMO_ITEMS[0]).toEqual({ kind: "code", label: "The NEW FYT Deal", text: "45% off + 2 Bonus Account", code: "NEWFYT" });
     expect(PROMO_ITEMS[1]).toEqual({ kind: "crypto", text: "52.5% Off Everything with Crypto Payment + 3 Accounts", sub: "Crypto Payment" });
     expect(PROMO_ITEMS[2]).toEqual({ kind: "live", text: "250 Spots Only" });
   });
