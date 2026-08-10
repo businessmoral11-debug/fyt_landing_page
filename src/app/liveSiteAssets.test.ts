@@ -30,6 +30,7 @@ describe("press logo assets", () => {
     "press-logos/businessinsider.webp",
     "press-logos/digitaljournal.webp",
     "press-logos/firmfinder.png",
+    "press-logos/the-trusted-prop.png",
     "press-logos/yahoo.webp",
   ];
   it.each(files)("%s exists and is non-empty", (f) => expectRealFile(f));

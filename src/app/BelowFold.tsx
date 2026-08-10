@@ -11,6 +11,7 @@ import imgPressBarchart from "@/assets/live-site/press-logos/barchart.webp";
 import imgPressBenzinga from "@/assets/live-site/press-logos/benzinga.webp";
 import imgPressDigitalJournal from "@/assets/live-site/press-logos/digitaljournal.webp";
 import imgPressYahoo from "@/assets/live-site/press-logos/yahoo.webp";
+import imgPressTrustedProp from "@/assets/live-site/press-logos/the-trusted-prop.png";
 import imgMatchTraderLogo from "@/assets/live-site/platform-logos/match-trader.png";
 import imgPlatform5Logo from "@/assets/live-site/platform-logos/platform-5.png";
 import { STEP_PLANS, STEP_SIZES, getEntry, checkoutUrl, fmtSize, planFlag, PLATFORM_OPTIONS, type StepId, type PlanId, type PlatformId } from "@/app/data/pricing";
@@ -279,8 +280,7 @@ const PRESS_LOGOS: PressLogo[] = [
   { kind: "image", src: imgPressYahoo, alt: "Yahoo Finance", w: 120 },
   { kind: "image", src: imgPressBarchart, alt: "Barchart", w: 110 },
   { kind: "image", src: imgPressBenzinga, alt: "Benzinga", w: 120 },
-  { kind: "badge", alt: "FirmFinder", badgeText: "F", badgeColor: "#2563EB", label: "FirmFinder" },
-  { kind: "badge", alt: "The Trusted Prop Firm", badgeText: "TPF", badgeColor: "#059669", label: ["THE TRUSTED", "PROP FIRM"] },
+  { kind: "image", src: imgPressTrustedProp, alt: "The Trusted Prop", w: 150 },
 ];
 
 function LightSweep() {

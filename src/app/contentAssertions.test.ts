@@ -235,30 +235,27 @@ describe("Featured-In section background and logo sizing", () => {
     const app = read("./BelowFold.tsx");
     expect(app).toContain('className="bg-black relative shrink-0 w-full"');
   });
-  it("sizes the four correctly-branded logos per the v3 spec, not the old undersized values", () => {
+  it("sizes the press logos per the v3 spec, not the old undersized values", () => {
     const app = read("./BelowFold.tsx");
     expect(app).toContain('{ kind: "image", src: imgPressDigitalJournal, alt: "Digital Journal", w: 80 }');
     expect(app).toContain('{ kind: "image", src: imgPressYahoo, alt: "Yahoo Finance", w: 120 }');
     expect(app).toContain('{ kind: "image", src: imgPressBarchart, alt: "Barchart", w: 110 }');
     expect(app).toContain('{ kind: "image", src: imgPressBenzinga, alt: "Benzinga", w: 120 }');
+    expect(app).toContain('{ kind: "image", src: imgPressTrustedProp, alt: "The Trusted Prop", w: 150 }');
   });
 });
 
-describe("Featured-In section: FirmFinder and Trusted Prop rebuilt as CSS badges", () => {
-  it("no longer imports the outdated FirmFinder/Trusted Prop logo images", () => {
-    const app = read("./App.tsx");
-    expect(app.includes("imgPressFirmFinder")).toBe(false);
-    expect(app.includes("imgPressTrustedProp")).toBe(false);
-    expect(app.includes("firmfinder.png")).toBe(false);
-    expect(app.includes("676767.jpg")).toBe(false);
-  });
-  it("renders FirmFinder as a colored badge with the approximated brand blue", () => {
+describe("Featured-In section: FirmFinder removed; Trusted Prop uses the new logo asset", () => {
+  it("no longer renders the FirmFinder badge", () => {
     const app = read("./BelowFold.tsx");
-    expect(app).toContain('{ kind: "badge", alt: "FirmFinder", badgeText: "F", badgeColor: "#2563EB", label: "FirmFinder" }');
+    expect(app.includes("FirmFinder")).toBe(false);
+    expect(app.includes('badgeText: "F"')).toBe(false);
   });
-  it("renders Trusted Prop as a colored badge with the approximated brand green and two-line label", () => {
+  it("renders The Trusted Prop from the provided logo image", () => {
     const app = read("./BelowFold.tsx");
-    expect(app).toContain('{ kind: "badge", alt: "The Trusted Prop Firm", badgeText: "TPF", badgeColor: "#059669", label: ["THE TRUSTED", "PROP FIRM"] }');
+    expect(app).toContain('import imgPressTrustedProp from "@/assets/live-site/press-logos/the-trusted-prop.png"');
+    expect(app).toContain('{ kind: "image", src: imgPressTrustedProp, alt: "The Trusted Prop", w: 150 }');
+    expect(app).not.toContain('badgeText: "TPF"');
   });
 });
 
