@@ -1092,7 +1092,7 @@ function LivePayouts() {
           transition={{ duration: 0.55, ease: [0.16, 1, 0.3, 1] }}
           className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em] text-center"
         >
-          Live Rewards. <span className="text-[#3b82f6]">Verified</span> Rewards.
+          Live Rewards. <span className="text-[#3b82f6]">Verified</span> Proofs.
         </motion.h2>
 
         <motion.div

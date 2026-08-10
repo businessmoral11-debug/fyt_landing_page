@@ -1054,9 +1054,9 @@ describe("Pricing panel bullets: pluralized 'reward splits'", () => {
 });
 
 describe("Live Rewards section heading", () => {
-  it("reads 'Live Rewards. Verified Rewards.'", () => {
+  it("reads 'Live Rewards. Verified Proofs.'", () => {
     const app = read("./BelowFold.tsx");
-    expect(app).toContain('Live Rewards. <span className="text-[#3b82f6]">Verified</span> Rewards.');
+    expect(app).toContain('Live Rewards. <span className="text-[#3b82f6]">Verified</span> Proofs.');
     expect(app).not.toContain("Live Payouts. <span");
   });
 });
