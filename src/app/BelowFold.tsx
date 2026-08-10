@@ -617,7 +617,7 @@ function ProveYourSkill() {
       </div>
       <div className="relative flex flex-col gap-[40px] lg:gap-[0px] items-center px-[20px] py-[64px] lg:px-[80px] lg:py-[120px] w-full max-w-[1280px] mx-auto">
         <div ref={scrollRef} className="hidden lg:block relative w-full" style={{ height: `${PROVE_SKILL_SCROLL_HEIGHT_VH}vh` }}>
-          <div className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[100px] gap-0">
+          <div className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[140px] gap-0">
             <div className="relative w-full" style={{ height: "900px" }}>
               <div className="absolute left-1/2 -translate-x-1/2 top-[24%] text-center w-[560px]">
                 <ProveSkillHeading size="text-[32px] xl:text-[40px]" />
@@ -1048,7 +1048,7 @@ function LivePayouts() {
   return (
     <div
       id="live-payouts"
-      className="bg-white relative shrink-0 w-full scroll-mt-[96px] lg:scroll-mt-[100px]"
+      className="bg-white relative shrink-0 w-full scroll-mt-[132px] lg:scroll-mt-[136px]"
       style={{ boxShadow: "inset 0 1px 0 rgba(0,0,0,0.03), inset 0 -1px 0 rgba(0,0,0,0.03)" }}
     >
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
@@ -1546,9 +1546,26 @@ function WhyChoiceBullets({ bullets }: { bullets: [PanelIconKind, string][] }) {
   );
 }
 
-const PLAN_COMPARE_URL = "https://intercom.help/funding-your-trades/en/articles/13374417-fyt-classic-vs-fyt-prime";
+const PLAN_COMPARE_CLASSIC_URL = "https://intercom.help/funding-your-trades/en/articles/13374417-fyt-classic-vs-fyt-prime";
+const PLAN_COMPARE_INSTANT_URL = "https://intercom.help/funding-your-trades/en/articles/14890800-instant-funding-models-compared";
 
-function PlanCompareShortcut() {
+function planCompareCopy(step: StepId): { href: string; label: string; ariaLabel: string } {
+  if (step === "Instant") {
+    return {
+      href: PLAN_COMPARE_INSTANT_URL,
+      label: "Compare Plus vs Prime",
+      ariaLabel: "Compare Plus and Prime",
+    };
+  }
+  return {
+    href: PLAN_COMPARE_CLASSIC_URL,
+    label: "Compare Classic vs Prime",
+    ariaLabel: "Compare Classic and Prime",
+  };
+}
+
+function PlanCompareShortcut({ step }: { step: StepId }) {
+  const { href, label, ariaLabel } = planCompareCopy(step);
   const anchorRef = useRef<HTMLAnchorElement>(null);
   const [mobileRevealed, setMobileRevealed] = useState(false);
   const prefersReducedMotion = useReducedMotion();
@@ -1584,14 +1601,14 @@ function PlanCompareShortcut() {
   return (
     <a
       ref={anchorRef}
-      href={PLAN_COMPARE_URL}
+      href={href}
       target="_blank"
       rel="noopener noreferrer"
-      aria-label="Compare Classic and Prime"
+      aria-label={ariaLabel}
       onKeyDown={(e) => {
         if (e.key === " ") {
           e.preventDefault();
-          window.open(PLAN_COMPARE_URL, "_blank", "noopener,noreferrer");
+          window.open(href, "_blank", "noopener,noreferrer");
         }
       }}
       className="group/compare relative flex shrink-0 items-center justify-center gap-[6px] lg:gap-[8px] self-stretch px-[12px] lg:px-[16px] rounded-[10px] no-underline transition-transform duration-200 hover:scale-[1.04] active:scale-[0.96]"
@@ -1616,7 +1633,7 @@ function PlanCompareShortcut() {
         className="hidden lg:block absolute -top-[38px] left-1/2 -translate-x-1/2 whitespace-nowrap px-[10px] py-[6px] rounded-[6px] text-[12px] font-['Inter:Medium',sans-serif] font-medium text-[#eef0f6] opacity-0 group-hover/compare:opacity-100 transition-opacity duration-200 pointer-events-none"
         style={{ background: "#12141c", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 20px -8px rgba(0,0,0,0.5)" }}
       >
-        Compare Classic vs Prime
+        {label}
       </span>
       <AnimatePresence>
         {mobileRevealed && (
@@ -1629,7 +1646,7 @@ function PlanCompareShortcut() {
             className="lg:hidden absolute -top-[38px] right-0 max-w-[calc(100vw-32px)] whitespace-nowrap px-[10px] py-[6px] rounded-[6px] text-[12px] font-['Inter:Medium',sans-serif] font-medium text-[#eef0f6] pointer-events-none"
             style={{ background: "#12141c", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 8px 20px -8px rgba(0,0,0,0.5)" }}
           >
-            Compare Classic vs Prime
+            {label}
           </motion.span>
         )}
       </AnimatePresence>
@@ -1747,7 +1764,7 @@ function Pricing() {
         ];
 
   return (
-    <div ref={sectionRef} id="challenge" className="relative shrink-0 w-full scroll-mt-[96px] lg:scroll-mt-[100px]">
+    <div ref={sectionRef} id="challenge" className="relative shrink-0 w-full scroll-mt-[132px] lg:scroll-mt-[136px]">
       <div
         ref={spotlight.ref}
         onMouseMove={spotlight.onMouseMove}
@@ -1939,7 +1956,7 @@ function Pricing() {
                       );
                     })}
                   </div>
-                  <PlanCompareShortcut />
+                  <PlanCompareShortcut step={step} />
                 </div>
               </div>
 
@@ -2537,10 +2554,10 @@ function HowItWorks() {
   });
 
   return (
-    <div id="how-it-works" className="bg-[#070810] relative shrink-0 w-full scroll-mt-[96px] lg:scroll-mt-[100px]">
+    <div id="how-it-works" className="bg-[#070810] relative shrink-0 w-full scroll-mt-[132px] lg:scroll-mt-[136px]">
       <div className="flex flex-col gap-[40px] lg:gap-[56px] items-center px-[20px] py-[56px] lg:px-[80px] lg:py-[96px] w-full max-w-[1280px] mx-auto">
         <div ref={scrollRef} className="hidden lg:block relative w-full" style={{ height: `${HOW_IT_WORKS_SCROLL_HEIGHT_VH}vh` }}>
-          <div className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[100px] gap-[56px]">
+          <div className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[140px] gap-[56px]">
             <HowItWorksHeading size="text-[44px]" subtextSize="text-[16px]" />
             <div className="relative w-full">
               <div className="absolute top-[18px] left-[6%] right-[6%] h-px" aria-hidden>
@@ -3415,7 +3432,7 @@ function DifferencePinnedCrossfade({ reduceMotion }: { reduceMotion: boolean | n
 
   return (
     <div ref={scrollRef} className="hidden lg:block relative w-full" style={{ height: `${DIFFERENCE_PIN_SCROLL_HEIGHT_VH}vh` }}>
-      <div className="sticky top-0 min-h-screen flex flex-col items-center justify-start pt-[100px]">
+      <div className="sticky top-0 min-h-screen flex flex-col items-center justify-start pt-[140px]">
         <div className="relative w-full overflow-x-hidden">
           <DifferenceScrollLayer
             className="absolute inset-0 flex items-center justify-center"

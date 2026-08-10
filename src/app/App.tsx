@@ -449,7 +449,7 @@ function Nav() {
   const [menuOpen, setMenuOpen] = useState(false);
   const scrolled = useScrollShrink(40);
   return (
-    <div className="sticky top-0 z-40 w-full">
+    <div className="w-full">
       <div>
         <div
           className="border-b rounded-b-[22px] transition-[background-color,backdrop-filter,box-shadow] duration-300 ease-out"
@@ -1177,8 +1177,10 @@ export default function App() {
   return (
     <div className="bg-[#070810] content-stretch flex flex-col items-start relative w-full min-h-screen">
       <CursorSpotlight />
-      <PromoBanner />
-      <Nav />
+      <div className="sticky top-0 z-40 w-full">
+        <PromoBanner />
+        <Nav />
+      </div>
       <Hero />
       <TrustStripDesktop />
       <BelowFoldErrorBoundary>

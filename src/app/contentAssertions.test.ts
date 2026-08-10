@@ -282,7 +282,7 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
   it("wraps the desktop layout in a tall scroll-tracking wrapper with a sticky pinned inner", () => {
     const app = read("./BelowFold.tsx");
     expect(app).toContain('style={{ height: `${PROVE_SKILL_SCROLL_HEIGHT_VH}vh` }}');
-    expect(app).toContain('className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[100px] gap-0"');
+    expect(app).toContain('className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[140px] gap-0"');
   });
 
   it("renders mobile as fully static -- no pinned/sticky wrapper, no scroll-tracking ref, no per-card reveal motion", () => {
@@ -1104,13 +1104,19 @@ describe("Promo banner", () => {
     expect(app).toMatch(/import\s*\{[^}]*\bPROMO_ITEMS\b[^}]*\bPROMO_DEADLINE\b[^}]*\bformatCountdown\b[^}]*\}\s*from\s*"@\/app\/data\/promoBanner"/);
   });
 
-  it("defines PromoBanner and renders it before Nav in the page tree", () => {
+  it("defines PromoBanner and sticks it with Nav at the top of the page", () => {
     const app = read("./App.tsx");
     expect(app).toContain("function PromoBanner()");
     const bannerIdx = app.indexOf("<PromoBanner />");
     const navIdx = app.indexOf("<Nav />");
     expect(bannerIdx).toBeGreaterThan(-1);
     expect(navIdx).toBeGreaterThan(bannerIdx);
+    expect(app).toContain('<div className="sticky top-0 z-40 w-full">');
+    const stickyIdx = app.indexOf('<div className="sticky top-0 z-40 w-full">');
+    expect(stickyIdx).toBeGreaterThan(-1);
+    expect(stickyIdx).toBeLessThan(bannerIdx);
+    const navBody = sliceToNextFunction(app, "function Nav()");
+    expect(navBody).not.toContain("sticky top-0");
   });
 
   it("clicking the banner jumps to #challenge via role=link, not by nesting a button inside a real <a>", () => {

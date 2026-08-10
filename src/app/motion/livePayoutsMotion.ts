@@ -29,7 +29,7 @@ export const LIVE_PAYOUTS_CHECK_DRAW_DURATION_S = 0.5;
 export const LIVE_PAYOUTS_BADGE_PULSE_DURATION_S = 4;
 export const livePayoutsBadgePulse = { opacity: [1, 0.65, 1] } as const;
 
-export const LIVE_PAYOUTS_HEADER_STICKY_TOP_PX = 84;
+export const LIVE_PAYOUTS_HEADER_STICKY_TOP_PX = 120;
 export const LIVE_PAYOUTS_DIVIDER_TRANSITION: Transition = { duration: 0.7, ease: EASE_OUT_EXPO };
 export const LIVE_PAYOUTS_COLUMN_LABEL_STAGGER_S = 0.06;
 export const LIVE_PAYOUTS_HEADER_DOT_TRANSITION: Transition = { duration: 1.8, repeat: Infinity, ease: "easeInOut" };
