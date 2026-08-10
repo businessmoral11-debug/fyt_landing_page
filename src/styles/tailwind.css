@@ -357,12 +357,14 @@ body::-webkit-scrollbar {
 /* Pre-promotes each entrance-reveal card (opacity/x/y written per scroll
    frame by ProveSkillRevealCard) to its own GPU layer up front, so the
    compositor isn't creating/tearing down the layer mid-animation -- that
-   layer churn is what reads as flicker/stutter on mobile. Released via the
-   same far-scroll observer above once the section is no longer in play. */
+   layer churn is what reads as flicker/stutter on mobile. Deliberately NOT
+   toggled off by .prove-skill-anims-paused (unlike the float animation
+   above): re-adding will-change to a one-shot reveal card as it re-enters
+   the 600px margin forces the browser to re-promote/re-flatten that layer,
+   which itself reads as a brief blink right at the section boundary on
+   lower-power mobile GPUs. Five small elements staying promoted costs
+   nothing worth trading for that. */
 .prove-skill-reveal-card {
   will-change: opacity, transform;
-}
-.prove-skill-anims-paused .prove-skill-reveal-card {
-  will-change: auto;
 }
 

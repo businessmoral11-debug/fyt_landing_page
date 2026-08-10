@@ -460,11 +460,13 @@ function Nav() {
             boxShadow: scrolled ? "0 16px 48px rgba(0,0,0,0.45)" : "0 12px 40px rgba(0,0,0,0.35)",
           }}
         >
-          <div
-            className={`flex flex-row items-center rounded-[inherit] size-full transition-[height] duration-300 ease-out ${
-              scrolled ? "h-[60px] lg:h-[64px]" : "h-[72px] lg:h-[76px]"
-            }`}
-          >
+          {/* Height is intentionally constant (not scroll-shrunk): the sticky
+              nav's own box height participates in normal document flow, so
+              animating it reflowed everything below -- including the Hero --
+              on every crossing of the shrink threshold. The background/blur/
+              shadow "scrolled" polish above is unaffected (paint-only, no
+              layout impact) and stays. */}
+          <div className="flex flex-row items-center rounded-[inherit] size-full h-[72px] lg:h-[76px]">
             <div className="content-stretch grid grid-cols-3 items-center px-[20px] lg:px-[26px] relative size-full max-w-[1280px] mx-auto">
               <div className="col-start-1 justify-self-start"><Brand /></div>
               <div className="col-start-2 justify-self-center"><Links /></div>
