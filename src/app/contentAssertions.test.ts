@@ -291,7 +291,7 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
   it("renders mobile as fully static -- no pinned/sticky wrapper, no scroll-tracking ref, no per-card reveal motion", () => {
     const app = read("./BelowFold.tsx");
     const proveYourSkillBody = sliceToNextFunction(app, "function ProveYourSkill()");
-    expect(proveYourSkillBody).toContain('className="lg:hidden relative w-full flex flex-col items-center pt-[96px] gap-[32px]"');
+    expect(proveYourSkillBody).toContain('className="lg:hidden relative w-full flex flex-col items-center gap-[32px]"');
     expect(proveYourSkillBody).not.toContain("mobileScrollRef");
     expect(proveYourSkillBody).not.toContain("mobileRevealProgress");
     expect(proveYourSkillBody).not.toContain("mobileScrollYProgress");
@@ -303,7 +303,7 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
   it("mobile cards render via plain divs with animated={false}, not ProveSkillRevealCard", () => {
     const app = read("./BelowFold.tsx");
     const proveYourSkillBody = sliceToNextFunction(app, "function ProveYourSkill()");
-    const mobileStart = proveYourSkillBody.indexOf('className="lg:hidden relative w-full flex flex-col items-center pt-[96px] gap-[32px]"');
+    const mobileStart = proveYourSkillBody.indexOf('className="lg:hidden relative w-full flex flex-col items-center gap-[32px]"');
     expect(mobileStart).toBeGreaterThan(-1);
     const mobileSection = proveYourSkillBody.slice(mobileStart);
     expect(mobileSection).not.toContain("<ProveSkillRevealCard");

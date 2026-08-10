@@ -644,7 +644,7 @@ function ProveYourSkill() {
             scroll-linked reveal, no per-card float/tilt/hover motion. Same
             padding/gaps/content as the pinned version, just rendered
             directly in normal document flow. Desktop above is untouched. */}
-        <div className="lg:hidden relative w-full flex flex-col items-center pt-[96px] gap-[32px]">
+        <div className="lg:hidden relative w-full flex flex-col items-center gap-[32px]">
           <div className="text-center px-[8px]">
             <ProveSkillHeading size="text-[28px]" animate={false} />
           </div>
