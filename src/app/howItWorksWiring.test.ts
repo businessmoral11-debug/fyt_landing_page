@@ -7,7 +7,7 @@ const app = readFileSync(resolve(__dirname, "./BelowFold.tsx"), "utf8");
 const howItWorksSection = (() => {
   const start = app.indexOf("function HowItWorksIcon(");
   expect(start).toBeGreaterThan(-1);
-  const end = app.indexOf("// ─── TESTIMONIALS", start);
+  const end = app.indexOf("const TestimonialsRevealContext", start);
   expect(end).toBeGreaterThan(start);
   return app.slice(start, end);
 })();

@@ -5,18 +5,18 @@ export type PlatformId = "match-trader" | "platform-5";
 
 export interface PricingEntry {
   productId: number;
-  priceOld: number; // regular price (struck through)
-  priceNew: number; // current discounted price shown as primary (priceOld struck through) — literal from the live config, not a fixed % of priceOld
-  share?: string;   // evaluation-phase reward share (challenges only)
-  p1?: string;      // phase 1 target (challenges)
-  p2?: string;      // phase 2 target (challenges)
-  profit?: string;  // target / withdrawal threshold (Instant)
+  priceOld: number;
+  priceNew: number;
+  share?: string;
+  p1?: string;
+  p2?: string;
+  profit?: string;
   maxDaily: string;
   maxOverall: string;
   split: string;
   time: string;
   minDays: string;
-  payout?: string;  // Instant only
+  payout?: string;
 }
 
 export interface PlanOption {

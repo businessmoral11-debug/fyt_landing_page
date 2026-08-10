@@ -48,10 +48,10 @@ describe("WORLD_MAP_CITIES", () => {
   it("places each city in the correct hemisphere relative to the prime meridian", () => {
     const byLabel = Object.fromEntries(WORLD_MAP_CITIES.map((c) => [c.label, c]));
     for (const label of ["New York", "Los Angeles", "Chicago", "São Paulo", "Buenos Aires", "London"]) {
-      expect(byLabel[label].lon).toBeLessThan(0); // Western hemisphere
+      expect(byLabel[label].lon).toBeLessThan(0);
     }
     for (const label of ["Dubai", "Mumbai", "Delhi", "Singapore", "Beijing", "Tokyo", "Shanghai", "Sydney"]) {
-      expect(byLabel[label].lon).toBeGreaterThan(0); // Eastern hemisphere
+      expect(byLabel[label].lon).toBeGreaterThan(0);
     }
   });
 });

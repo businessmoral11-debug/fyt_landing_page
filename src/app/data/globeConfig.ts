@@ -22,7 +22,7 @@ export const GLOBE_HOTSPOTS: GlobeHotspot[] = [
 ];
 
 export interface GlobeRoute {
-  from: string; // GlobeHotspot.country
+  from: string;
   to: string;
 }
 

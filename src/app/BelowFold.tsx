@@ -41,7 +41,6 @@ function preloadGlobeChunkOnce() {
       try {
         performance.measure("Globe: JS chunk download + evaluate", "globe:chunk-load-start", "globe:chunk-load-end");
       } catch {
-        // profiling only, safe to skip
       }
     }
   });
@@ -664,10 +663,10 @@ function ProveYourSkill() {
 
 
 const PROOF_STATS = [
-  { value: KEY_METRICS[0].value, label: "Rewards Paid", icon: "dollar" },      // $2.6M+
-  { value: KEY_METRICS[1].value, label: "Funded Traders", icon: "people" },    // 14,000+
-  { value: KEY_METRICS[2].value, label: "Countries", icon: "globe" },          // 105+
-  { value: "24-48H", label: "Processing", icon: "lightning" },                 // PDF-only stat, no KEY_METRICS equivalent
+  { value: KEY_METRICS[0].value, label: "Rewards Paid", icon: "dollar" },
+  { value: KEY_METRICS[1].value, label: "Funded Traders", icon: "people" },
+  { value: KEY_METRICS[2].value, label: "Countries", icon: "globe" },
+  { value: "24-48H", label: "Processing", icon: "lightning" },
 ] as const;
 
 function ProofStatIcon({ kind }: { kind: "dollar" | "people" | "globe" | "lightning" }) {
@@ -830,7 +829,6 @@ function ProofStatCard({
   );
 }
 
-// ─── PROOF IN NUMBERS ─────────────────────────────────────────────────────────
 function ProofInNumbers() {
   const prefersReducedMotion = useReducedMotion();
   const spotlight = useCursorGlow<HTMLDivElement>();
@@ -2836,7 +2834,6 @@ function TestimonialSlide({ item, onPlayVideo }: { item: TestimonialSlideItem; o
   return <VideoCard src={item.video.posterUrl} name={item.video.name} onPlay={() => onPlayVideo(item.video)} />;
 }
 
-// ─── TESTIMONIALS
 function TestimonialsDesktopCarousel({ onPlayVideo }: { onPlayVideo: (video: TestimonialVideo) => void }) {
   const prefersReducedMotion = useReducedMotion();
   const revealed = useContext(TestimonialsRevealContext);

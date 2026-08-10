@@ -1,8 +1,8 @@
 import type { Variants } from "motion/react";
 
 export interface StepReveal {
-  fadeStart: number; // scrollYProgress (0-1) where this element starts ramping from dim to peak
-  fadeEnd: number;   // scrollYProgress (0-1) where this element reaches full peak brightness
+  fadeStart: number;
+  fadeEnd: number;
 }
 
 export const HOW_IT_WORKS_SCROLL_HEIGHT_VH = 200;
@@ -19,9 +19,9 @@ export const HOW_IT_WORKS_LINE_REVEAL: StepReveal = {
   fadeEnd: HOW_IT_WORKS_STEP_REVEALS[HOW_IT_WORKS_STEP_REVEALS.length - 1].fadeEnd,
 };
 
-export const HOW_IT_WORKS_RING_RGB = "59,130,246"; // #3b82f6
-export const HOW_IT_WORKS_DOT_RGB = "238,240,246"; // #eef0f6
-export const HOW_IT_WORKS_NUMBER_RGB = "96,165,250"; // #60a5fa
+export const HOW_IT_WORKS_RING_RGB = "59,130,246";
+export const HOW_IT_WORKS_DOT_RGB = "238,240,246";
+export const HOW_IT_WORKS_NUMBER_RGB = "96,165,250";
 
 export const HOW_IT_WORKS_RING_BORDER_ALPHA = { dim: 0.1, peak: 1 } as const;
 export const HOW_IT_WORKS_RING_GLOW_ALPHA = { dim: 0.05, peak: 0.75 } as const;
@@ -41,7 +41,7 @@ export const HOW_IT_WORKS_DESC_PEAK_HEX = "#ffffff";
 
 export const HOW_IT_WORKS_LINE_GLOW = "0 0 12px rgba(59,130,246,0.6)";
 
-export const HOW_IT_WORKS_MOBILE_SPOTLIGHT_TRANSITION_S = 0.4; // within the requested 300-500ms window
+export const HOW_IT_WORKS_MOBILE_SPOTLIGHT_TRANSITION_S = 0.4;
 
 export const HOW_IT_WORKS_MOBILE_SPOTLIGHT_CARD: Variants = {
   rest: {

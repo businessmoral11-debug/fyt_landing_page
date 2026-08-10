@@ -35,8 +35,8 @@ describe("pointInMultiPolygon", () => {
     ];
     const multiPolygon = [[outer, hole]];
 
-    expect(pointInMultiPolygon(5, 5, multiPolygon)).toBe(false); // inside the hole
-    expect(pointInMultiPolygon(1, 1, multiPolygon)).toBe(true); // inside outer, outside hole
+    expect(pointInMultiPolygon(5, 5, multiPolygon)).toBe(false);
+    expect(pointInMultiPolygon(1, 1, multiPolygon)).toBe(true);
   });
 
   it("finds points across disjoint polygons", () => {

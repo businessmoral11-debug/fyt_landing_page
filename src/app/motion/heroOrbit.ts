@@ -1,16 +1,16 @@
 
 export interface OrbitLabel {
   label: string;
-  left: number;   // px, design coords — the dot's horizontal center (HeroStage centers the wrapper with translateX(-50%))
-  top: number;    // px, design coords — the dot's top edge (the label stacks below it, matching the row-based top-edge convention the rest of this file uses)
-  rotate: number; // deg — bearing from the node's center to this dot; aims the sweep beam only (see heroSweep.ts), never applied to the label's own CSS transform
+  left: number;
+  top: number;
+  rotate: number;
 }
 
 export interface OrbitRing {
-  cx: number; // ellipse center x
-  cy: number; // ellipse center y
-  rx: number; // horizontal radius
-  ry: number; // vertical radius
+  cx: number;
+  cy: number;
+  rx: number;
+  ry: number;
 }
 
 export const HERO_ORBIT_LABELS: OrbitLabel[] = [
@@ -32,8 +32,8 @@ export const MOBILE_ORBIT_LABELS: OrbitLabel[] = [
 export type MobileLabelAnchor = "start" | "center" | "end";
 
 export interface MobileLabelLayout {
-  anchor: MobileLabelAnchor; // which edge of the text box sits at `left`
-  wrapWidth: number;         // px, local stage space — fixed so text wraps instead of relying on glyph-measured nowrap width
+  anchor: MobileLabelAnchor;
+  wrapWidth: number;
 }
 
 export const MOBILE_LABEL_LAYOUT: MobileLabelLayout[] = [
@@ -62,8 +62,8 @@ export function mobileLabelBoxCss(anchor: MobileLabelAnchor = "center"): MobileL
 }
 
 export const HERO_ORBIT_RINGS: OrbitRing[] = [
-  { cx: 720, cy: 800.3,  rx: 300, ry: 220.3 }, // 29.17% insets, bottom 5.56%
-  { cx: 720, cy: 934.9,  rx: 430, ry: 354.9 }, // 20.14% insets, bottom −6.48%
-  { cx: 720, cy: 1000.1, rx: 560, ry: 420.1 }, // 11.11% insets, bottom −18.52%
-  { cx: 720, cy: 1140.1, rx: 840, ry: 560.1 }, // −8.33% insets, bottom −44.44%
+  { cx: 720, cy: 800.3,  rx: 300, ry: 220.3 },
+  { cx: 720, cy: 934.9,  rx: 430, ry: 354.9 },
+  { cx: 720, cy: 1000.1, rx: 560, ry: 420.1 },
+  { cx: 720, cy: 1140.1, rx: 840, ry: 560.1 },
 ];

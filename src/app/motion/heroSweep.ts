@@ -1,7 +1,7 @@
 
-export const DWELL_S = 0.8; // beam parked on a label
-export const MOVE_S = 0.6; // travel between adjacent labels
-export const GLOW_RAMP_FRAC = 0.5; // rise/fall each span this fraction of a move
+export const DWELL_S = 0.8;
+export const MOVE_S = 0.6;
+export const GLOW_RAMP_FRAC = 0.5;
 
 const fmt = (n: number): string => {
   const r = Math.round(n * 1000) / 1000;
@@ -13,9 +13,9 @@ export function passDuration(count: number): number {
 }
 
 export interface SweepStop {
-  pct: number; // raw (unrounded) percent of one pass
+  pct: number;
   deg: number;
-  ease: boolean; // true → this stop begins a move segment (ease-in-out)
+  ease: boolean;
 }
 
 export function sweepStops(angles: readonly number[]): SweepStop[] {
@@ -31,10 +31,10 @@ export function sweepStops(angles: readonly number[]): SweepStop[] {
 }
 
 export interface GlowWindow {
-  riseStartPct: number | null; // null → starts already held (first label)
+  riseStartPct: number | null;
   holdStartPct: number;
   holdEndPct: number;
-  fallEndPct: number | null; // null → held to the end of the pass (last label)
+  fallEndPct: number | null;
 }
 
 export function glowWindow(index: number, count: number): GlowWindow {

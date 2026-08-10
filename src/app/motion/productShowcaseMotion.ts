@@ -50,7 +50,7 @@ export const productDashboardFront: Variants = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.7, ease: EASE_OUT_EXPO } },
 };
 
-export const PRODUCT_DASHBOARD_FLOAT_AMPLITUDE_PX = 4; // within the requested 3-5px
+export const PRODUCT_DASHBOARD_FLOAT_AMPLITUDE_PX = 4;
 export const PRODUCT_DASHBOARD_FLOAT_DURATION_S = 13;
 export const productDashboardFloatY = [0, -PRODUCT_DASHBOARD_FLOAT_AMPLITUDE_PX, 0];
 export const PRODUCT_DASHBOARD_FLOAT_TRANSITION: Transition = {
@@ -61,7 +61,7 @@ export const PRODUCT_DASHBOARD_FLOAT_TRANSITION: Transition = {
 export const PRODUCT_DASHBOARD_TILT_MAX_DEG = 5;
 
 export const PRODUCT_REFLECTION_SWEEP_DURATION_S = 1.8;
-export const PRODUCT_REFLECTION_SWEEP_CYCLE_S = 13.5; // within the requested 12-15s window
+export const PRODUCT_REFLECTION_SWEEP_CYCLE_S = 13.5;
 export const PRODUCT_REFLECTION_SWEEP_REPEAT_DELAY_S = PRODUCT_REFLECTION_SWEEP_CYCLE_S - PRODUCT_REFLECTION_SWEEP_DURATION_S;
 export const PRODUCT_REFLECTION_SWEEP_TRANSITION: Transition = {
   duration: PRODUCT_REFLECTION_SWEEP_DURATION_S,

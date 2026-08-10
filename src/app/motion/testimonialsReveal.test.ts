@@ -94,8 +94,8 @@ describe("TESTIMONIAL_CARD_REVEAL", () => {
     const show = TESTIMONIAL_CARD_REVEAL.show as TargetAndTransition;
     const shadow = show.boxShadow as string[];
     expect(shadow).toHaveLength(3);
-    expect(shadow[1]).toContain("59,130,246"); // blue glow at the peak
-    expect(shadow[2]).not.toContain("59,130,246"); // gone by the end
+    expect(shadow[1]).toContain("59,130,246");
+    expect(shadow[2]).not.toContain("59,130,246");
   });
 });
 

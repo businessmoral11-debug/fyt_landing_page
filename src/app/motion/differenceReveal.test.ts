@@ -94,8 +94,8 @@ describe("DIFFERENCE_CONTENT_ENTER_REVEAL", () => {
   });
 
   it("the content's leading edge enters the clip box no later than the heading's trailing edge leaves it (no blank-section gap at any desktop width)", () => {
-    const CLIP = [1024 - 160, 1280 - 160]; // 864, 1120 — max-w-[1280px] minus lg:px-[80px] ×2
-    const HEADING_MIN_W = 550; // conservative lower bound on the rendered heading text width
+    const CLIP = [1024 - 160, 1280 - 160];
+    const HEADING_MIN_W = 550;
     for (const C of CLIP) {
       const speed = Math.abs(DIFFERENCE_HEADING_EXIT_REVEAL.xTo) /
         (DIFFERENCE_HEADING_EXIT_REVEAL.fadeEnd - DIFFERENCE_HEADING_EXIT_REVEAL.fadeStart);

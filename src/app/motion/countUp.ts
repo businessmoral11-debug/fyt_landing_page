@@ -1,10 +1,10 @@
 
 export interface CountUpSegment {
   kind: "literal" | "number";
-  text: string;        // literal text; for "number" segments, the ORIGINAL matched text
-  target?: number;      // parsed numeric value, only set for "number" segments
-  decimals?: number;     // decimal places to preserve, only set for "number" segments
-  hasCommas?: boolean;   // whether to re-insert thousands separators, only set for "number" segments
+  text: string;
+  target?: number;
+  decimals?: number;
+  hasCommas?: boolean;
 }
 
 const NUMBER_PATTERN = /\d[\d,]*(?:\.\d+)?/g;

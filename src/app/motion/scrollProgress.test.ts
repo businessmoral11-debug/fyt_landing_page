@@ -16,9 +16,9 @@ describe("trackMonotonicMax", () => {
 
   it("resumes tracking upward after a dip", () => {
     let max = 0.2;
-    max = trackMonotonicMax(max, 0.5); // 0.5 — new high
-    max = trackMonotonicMax(max, 0.3); // still 0.5 — dip ignored
-    max = trackMonotonicMax(max, 0.6); // 0.6 — new high again
+    max = trackMonotonicMax(max, 0.5);
+    max = trackMonotonicMax(max, 0.3);
+    max = trackMonotonicMax(max, 0.6);
     expect(max).toBe(0.6);
   });
 

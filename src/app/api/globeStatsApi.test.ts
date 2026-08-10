@@ -48,10 +48,10 @@ describe("fetchGlobeStats", () => {
       data: {
         countries: [
           { countryCode: "IN", countryName: "India", traderCount: 847 },
-          { countryCode: "USA", countryName: "United States", traderCount: 1245 }, // bad code (3 letters)
-          { countryCode: "DE", countryName: "Germany", traderCount: -5 }, // negative
-          { countryCode: "GB", countryName: "United Kingdom", traderCount: 12.5 }, // decimal
-          { countryCode: "FR", traderCount: 100 }, // missing countryName
+          { countryCode: "USA", countryName: "United States", traderCount: 1245 },
+          { countryCode: "DE", countryName: "Germany", traderCount: -5 },
+          { countryCode: "GB", countryName: "United Kingdom", traderCount: 12.5 },
+          { countryCode: "FR", traderCount: 100 },
           null,
           "not an object",
         ],

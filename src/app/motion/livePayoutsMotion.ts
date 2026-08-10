@@ -23,7 +23,7 @@ export const livePayoutsDotBreathe = { opacity: [1, 0.45, 1], scale: [1, 1.15, 1
 export const LIVE_PAYOUTS_AMOUNT_SPRING: Transition = { stiffness: 90, damping: 20, mass: 1 };
 export const LIVE_PAYOUTS_AMOUNT_GLOW = "0 0 16px rgba(59,130,246,0.3)";
 export const LIVE_PAYOUTS_AMOUNT_GLOW_HOVER = "0 0 26px rgba(59,130,246,0.5)";
-export const LIVE_PAYOUTS_AMOUNT_SHIMMER_S = "7s"; // within the requested 6-8s window
+export const LIVE_PAYOUTS_AMOUNT_SHIMMER_S = "7s";
 
 export const LIVE_PAYOUTS_CHECK_DRAW_DURATION_S = 0.5;
 export const LIVE_PAYOUTS_BADGE_PULSE_DURATION_S = 4;
@@ -63,4 +63,4 @@ export const LIVE_PAYOUTS_BG_GLOW_OPACITY = 0.07;
 export const LIVE_PAYOUTS_VIGNETTE_OPACITY = 0.05;
 export const LIVE_PAYOUTS_NOISE_OPACITY = 0.02;
 
-export const LIVE_PAYOUTS_SPOTLIGHT_OPACITY = 0.12; // per-row spotlight
+export const LIVE_PAYOUTS_SPOTLIGHT_OPACITY = 0.12;

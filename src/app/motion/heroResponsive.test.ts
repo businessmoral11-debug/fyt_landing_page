@@ -65,12 +65,12 @@ describe("MOBILE_ORBIT_LABELS layout — no overlap, no edge clipping (regressio
   function screenX0FromTranslateX(translateX: string, screenLeft: number, screenWidth: number): number {
     if (translateX === "0%") return screenLeft;
     if (translateX === "-100%") return screenLeft - screenWidth;
-    return screenLeft - screenWidth / 2; // "-50%"
+    return screenLeft - screenWidth / 2;
   }
 
   function labelBox(index: number, viewportWidth: number) {
     const stageScale = heroStageScale(viewportWidth);
-    const netScale = HERO_LABEL_BOOST; // heroLabelScale(stageScale) * stageScale === HERO_LABEL_BOOST, always
+    const netScale = HERO_LABEL_BOOST;
     const { left, top } = MOBILE_ORBIT_LABELS[index];
     const { anchor, wrapWidth } = MOBILE_LABEL_LAYOUT[index];
     const { translateX } = mobileLabelBoxCss(anchor);
@@ -94,7 +94,7 @@ describe("MOBILE_ORBIT_LABELS layout — no overlap, no edge clipping (regressio
           const a = boxes[i];
           const b = boxes[j];
           const yOverlaps = a.y0 < b.y1 && b.y0 < a.y1;
-          if (!yOverlaps) continue; // different rows never collide horizontally
+          if (!yOverlaps) continue;
           const xGap = Math.max(b.x0 - a.x1, a.x0 - b.x1);
           expect(
             xGap,

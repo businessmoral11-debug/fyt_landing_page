@@ -3,10 +3,10 @@ export type PromoItemKind = "code" | "plain" | "crypto" | "live";
 
 export interface PromoItem {
   kind: PromoItemKind;
-  label?: string; // optional lead-in label, e.g. "Summer Special"
+  label?: string;
   text: string;
-  sub?: string; // secondary line, e.g. "Crypto Payment"
-  code?: string; // promo code, present only on "code" kind items
+  sub?: string;
+  code?: string;
 }
 
 export const PROMO_ITEMS: PromoItem[] = [

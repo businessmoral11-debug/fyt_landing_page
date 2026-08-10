@@ -59,7 +59,7 @@ function inHeroTextZone(x: number, y: number): boolean {
 
 function inHeroTextZoneScaled(x: number, y: number, z: number): boolean {
   const distance = 8 - z;
-  const scale = Math.max(1, distance / 12); // 12 ≈ distance of the original small-corner rocks
+  const scale = Math.max(1, distance / 12);
   return Math.abs(x) < 3.6 * scale && y > -2.4 * scale && y < 3.8 * scale;
 }
 
@@ -503,9 +503,9 @@ function StarLayer({ depth, count, baseSize, midSize, brightSize, speedPxPerSec 
         const colorRoll = Math.random();
         let r = 0.95, g = 0.96, b = 1.0;
         if (colorRoll < 0.05) {
-          r = 0.75; g = 0.83; b = 1.0; // pale blue
+          r = 0.75; g = 0.83; b = 1.0;
         } else if (colorRoll < 0.08) {
-          r = 1.0; g = 0.92; b = 0.76; // pale yellow
+          r = 1.0; g = 0.92; b = 0.76;
         }
         colors[i * 3 + 0] = r;
         colors[i * 3 + 1] = g;
@@ -758,7 +758,7 @@ const RADAR_FRAGMENT_SHADER = /* glsl */ `
     gl_FragColor = vec4(uColor, (trail + edge) * radial * uOpacity);
   }
 `;
-const RADAR_PERIOD_S = 18; // within the requested 15-20s window
+const RADAR_PERIOD_S = 18;
 
 interface RadarData {
   geometry: THREE.PlaneGeometry;

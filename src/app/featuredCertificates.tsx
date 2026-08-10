@@ -6,7 +6,7 @@ const CERTS_PAGE_SIZE = 24;
 const AUTO_ADVANCE_MS = 4000;
 const RESUME_DELAY_MS = 1500;
 const CARD_WIDTH_PX = 262;
-const CARD_GAP_PX = 16; // gap-4
+const CARD_GAP_PX = 16;
 
 function useCertificatesFeed() {
   const [items, setItems] = useState<PublicCertificate[]>([]);
@@ -45,7 +45,6 @@ function useCertificatesFeed() {
 
   useEffect(() => {
     void loadPage(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const loadMore = useCallback(() => {
@@ -219,7 +218,7 @@ export function FeaturedCertificates() {
     let forceRecompute = false;
 
     function tick() {
-      if (!isVisible) return; // stopped — the observer below restarts it
+      if (!isVisible) return;
       const track = trackRef.current;
       if (track) {
         const scrollLeft = track.scrollLeft;

@@ -46,7 +46,6 @@ function preloadGlobeChunkOnce() {
       try {
         performance.measure("Globe: JS chunk download + evaluate", "globe:chunk-load-start", "globe:chunk-load-end");
       } catch {
-        // profiling only, safe to skip
       }
     }
   });
@@ -415,7 +414,6 @@ function MobileMenu({ open, onClose }: { open: boolean; onClose: () => void }) {
             {NAV_LINKS.items.map((item) =>
               item.type === "dropdown" ? (
                 <div key={item.label} className="flex flex-col items-center w-full">
-                  <p className="pt-[18px] pb-[2px] text-[13px] leading-[1.3] tracking-normal text-white/45 font-['Inter:Medium',sans-serif] font-medium">{item.label}</p>
                   {item.items.map((sub) => (
                     <a key={sub.label} href={sub.href} className={MOBILE_NAV_ITEM_CLASS}>
                       {sub.label}

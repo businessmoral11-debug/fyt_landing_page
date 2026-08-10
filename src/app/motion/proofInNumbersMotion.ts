@@ -3,7 +3,7 @@ import type { TargetAndTransition, Transition, Variants } from "motion/react";
 const EASE_OUT_EXPO = [0.16, 1, 0.3, 1] as const;
 const PROOF_SPRING: Transition = { type: "spring", stiffness: 90, damping: 18, mass: 1 };
 
-export const PROOF_SIDE_SLIDE_X = 80; // px-equivalent (Framer treats bare numbers on x as px)
+export const PROOF_SIDE_SLIDE_X = 80;
 
 /**
  * Deliberately has no opacity/x of its own -- ProofInNumbers' heading and
@@ -54,7 +54,7 @@ export const proofCardReveal: Variants = {
   show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.5, ease: EASE_OUT_EXPO } },
 };
 
-export const PROOF_FLOAT_DURATION_S = 16; // within the requested 14-18s window
+export const PROOF_FLOAT_DURATION_S = 16;
 export const PROOF_FLOAT_TRANSITION: Transition = {
   duration: PROOF_FLOAT_DURATION_S,
   repeat: Infinity,
@@ -70,9 +70,9 @@ export const PROOF_AMBIENT_GLOW_TRANSITION: Transition = {
   ease: "easeInOut",
 };
 
-export const PROOF_CARD_FLOAT_AMPLITUDE_PX = 2.5; // within the requested 2-3px
-export const PROOF_CARD_FLOAT_DURATION_S = 11; // within the requested 10-12s
-export const PROOF_CARD_FLOAT_STAGGER_S = 1.1; // per-card start offset, index 0-3
+export const PROOF_CARD_FLOAT_AMPLITUDE_PX = 2.5;
+export const PROOF_CARD_FLOAT_DURATION_S = 11;
+export const PROOF_CARD_FLOAT_STAGGER_S = 1.1;
 
 export const PROOF_CARD_HOVER_TRANSITION: Transition = { type: "spring", stiffness: 300, damping: 22 };
 export const proofCardHover = {
@@ -120,8 +120,8 @@ export const PROOF_ICON_MOTION: Record<ProofIconKind, { animate?: TargetAndTrans
   lightning: { animate: proofIconLightningPulse, transition: PROOF_ICON_LIGHTNING_TRANSITION },
 };
 
-export const PROOF_SHIMMER_CYCLE_S = 9; // within the requested 8-10s window
-export const PROOF_SHIMMER_DELAY_S = 1.6; // just after the 1200ms count-up finishes
+export const PROOF_SHIMMER_CYCLE_S = 9;
+export const PROOF_SHIMMER_DELAY_S = 1.6;
 
 export const PROOF_BUTTON_SWEEP_DURATION_S = 1.6;
 export const PROOF_BUTTON_SWEEP_CYCLE_S = 8;
@@ -141,16 +141,16 @@ export interface DataLine {
   y2: number;
 }
 export const PROOF_DATA_LINES: readonly DataLine[] = [
-  { x1: 22, y1: 22, x2: 50, y2: 50 }, // top-left card → center
-  { x1: 78, y1: 22, x2: 50, y2: 50 }, // top-right card → center
-  { x1: 22, y1: 78, x2: 50, y2: 50 }, // bottom-left card → center
-  { x1: 78, y1: 78, x2: 50, y2: 50 }, // bottom-right card → center
+  { x1: 22, y1: 22, x2: 50, y2: 50 },
+  { x1: 78, y1: 22, x2: 50, y2: 50 },
+  { x1: 22, y1: 78, x2: 50, y2: 50 },
+  { x1: 78, y1: 78, x2: 50, y2: 50 },
 ];
 export const PROOF_DATA_LINE_LIGHT_CYCLE_S = 3.6;
 export const PROOF_DATA_LINE_LIGHT_DURATION_S = 1.1;
-export const PROOF_DATA_LINE_LIGHT_STAGGER_S = 0.5; // offset between each of the 4 lights
+export const PROOF_DATA_LINE_LIGHT_STAGGER_S = 0.5;
 
-export const PROOF_CONNECTION_LINE_DELAY_S = 0.7; // ~ when the left/right springs have settled
+export const PROOF_CONNECTION_LINE_DELAY_S = 0.7;
 export const PROOF_CONNECTION_LINE_DURATION_S = 0.5;
 export const PROOF_CONNECTION_LINE_OPACITY = 0.3;
 export const PROOF_CONNECTION_LINE_TRAVEL_DELAY_S = PROOF_CONNECTION_LINE_DELAY_S + PROOF_CONNECTION_LINE_DURATION_S;

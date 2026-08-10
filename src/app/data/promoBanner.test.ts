@@ -29,7 +29,7 @@ describe("formatCountdown", () => {
 
   it("zero-pads single-digit hours/minutes/seconds", () => {
     const deadlineMs = new Date(PROMO_DEADLINE).getTime();
-    const nowMs = deadlineMs - (5 * 3600000 + 5 * 60000 + 5000); // 5h 5m 5s before deadline
+    const nowMs = deadlineMs - (5 * 3600000 + 5 * 60000 + 5000);
     expect(formatCountdown(PROMO_DEADLINE, nowMs)).toEqual({ days: 0, hh: "05", mm: "05", ss: "05" });
   });
 });

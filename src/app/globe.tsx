@@ -147,9 +147,9 @@ function StarDust() {
       const colorRoll = Math.random();
       let cr = 0.95, cg = 0.96, cb = 1.0;
       if (colorRoll < 0.05) {
-        cr = 0.75; cg = 0.83; cb = 1.0; // pale blue
+        cr = 0.75; cg = 0.83; cb = 1.0;
       } else if (colorRoll < 0.08) {
-        cr = 1.0; cg = 0.92; cb = 0.76; // pale yellow
+        cr = 1.0; cg = 0.92; cb = 0.76;
       }
       colors[i * 3] = cr;
       colors[i * 3 + 1] = cg;
@@ -175,7 +175,6 @@ function StarDust() {
     });
 
     return { geom, mat };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -218,7 +217,6 @@ function EarthGlobe({
       try {
         performance.measure("Globe: texture creation (2D canvas draw)", "globe:texture-start", "globe:texture-end");
       } catch {
-        // profiling only, safe to skip
       }
     }
     const material = new THREE.MeshLambertMaterial({ map: earthTexture });
@@ -250,7 +248,6 @@ function EarthGlobe({
       try {
         performance.measure("Globe: geometry generation (ThreeGlobe + points setup)", "globe:geometry-start", "globe:geometry-end");
       } catch {
-        // profiling only, safe to skip
       }
     }
     g.onGlobeReady(() => {
@@ -269,13 +266,11 @@ function EarthGlobe({
               .map((e) => `${e.name}: ${e.duration.toFixed(1)}ms`),
           );
         } catch {
-          // marks not present (e.g. hot-reload) — profiling only, safe to skip
         }
       }
       onReady();
     });
     return g;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -319,7 +314,6 @@ function EarthGlobe({
         try {
           performance.measure("Globe: arc generation (first cycle)", "globe:arc-gen-start", "globe:arc-gen-end");
         } catch {
-          // profiling only, safe to skip
         }
         isFirstCycle = false;
       }
@@ -408,7 +402,6 @@ function TraderCountText({ value, prefersReducedMotion }: { value: number; prefe
     if (!ref.current) return;
     ref.current.textContent = prefersReducedMotion ? text : renderCountUp(segments, 0);
     if (!prefersReducedMotion) progress.set(1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [prefersReducedMotion, segments, text]);
 
   useMotionValueEvent(spring, "change", (v) => {
@@ -564,7 +557,6 @@ function GlobePrecompile({ onDone }: { onDone: () => void }) {
       try {
         performance.measure("Globe: shader compile (forced via renderer.compile)", "globe:shader-compile-start", "globe:shader-compile-end");
       } catch {
-        // profiling only, safe to skip
       }
     }
 
@@ -582,13 +574,11 @@ function GlobePrecompile({ onDone }: { onDone: () => void }) {
       try {
         performance.measure("Globe: texture upload to GPU", "globe:texture-upload-start", "globe:texture-upload-end");
       } catch {
-        // profiling only, safe to skip
       }
     }
 
     gl.render(scene, camera);
     onDone();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   return null;
 }
@@ -608,10 +598,6 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
         if (!cancelled) setLiveStats(stats);
       })
       .catch(() => {
-        // Live per-hotspot trader counts are a cosmetic enhancement — the
-        // globe itself, its geometry, and rotation are unaffected either
-        // way, so a failed/rate-limited fetch just leaves liveStats at its
-        // empty initial value instead of surfacing an unhandled rejection.
       });
     return () => {
       cancelled = true;
@@ -620,7 +606,6 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
 
   useEffect(() => {
     if (fullyReady) onReady?.();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fullyReady]);
 
   return (

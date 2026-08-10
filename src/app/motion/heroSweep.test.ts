@@ -38,10 +38,10 @@ describe("sweepStops", () => {
     }
   });
   it("places dwells on the reference schedule", () => {
-    expect(stops[1].pct).toBeCloseTo(10.2564, 3); // dwell0 end
-    expect(stops[2].pct).toBeCloseTo(17.9487, 3); // dwell1 start
-    expect(stops[4].pct).toBeCloseTo(35.8974, 3); // dwell2 start
-    expect(stops[10].pct).toBeCloseTo(89.7436, 3); // dwell5 start
+    expect(stops[1].pct).toBeCloseTo(10.2564, 3);
+    expect(stops[2].pct).toBeCloseTo(17.9487, 3);
+    expect(stops[4].pct).toBeCloseTo(35.8974, 3);
+    expect(stops[10].pct).toBeCloseTo(89.7436, 3);
   });
   it("eases only the move segments (dwell-end stops, except the last)", () => {
     const eased = stops.map((s) => s.ease);
