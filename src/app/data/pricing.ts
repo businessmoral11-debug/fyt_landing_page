@@ -42,13 +42,14 @@ export function salePrice(priceOld: number): number {
   return Math.round(priceOld * (1 - SALE_DISCOUNT_FRACTION) * 100) / 100;
 }
 
-function build(rules: Rules, rows: Row[]): PlatformTable {
+function build(rules: Rules, rows: Row[], opts?: { explicitSalePrice?: boolean }): PlatformTable {
   const out: PlatformTable = { "match-trader": {}, "platform-5": {} };
   for (const r of rows) {
     const split = r.split ?? rules.split;
-    // Row tuples keep a legacy mid-slot for readability; sale price is always 45% off list.
-    out["match-trader"][r.size] = { ...rules, split, priceOld: r.mt[0], priceNew: salePrice(r.mt[0]), productId: r.mt[2] };
-    out["platform-5"][r.size] = { ...rules, split, priceOld: r.p5[0], priceNew: salePrice(r.p5[0]), productId: r.p5[2] };
+    const mtSale = opts?.explicitSalePrice ? r.mt[1] : salePrice(r.mt[0]);
+    const p5Sale = opts?.explicitSalePrice ? r.p5[1] : salePrice(r.p5[0]);
+    out["match-trader"][r.size] = { ...rules, split, priceOld: r.mt[0], priceNew: mtSale, productId: r.mt[2] };
+    out["platform-5"][r.size] = { ...rules, split, priceOld: r.p5[0], priceNew: p5Sale, productId: r.p5[2] };
   }
   return out;
 }
@@ -84,12 +85,12 @@ export const PRICING_DATA: Record<StepId, Partial<Record<PlanId, PlatformTable>>
       { size: 200000, mt: [809, 485.4, 1230], p5: [819, 491.4, 12368] },
     ]),
     prime: build(RULES_2STEP, [
-      { size: 10000, mt: [95, 57, 20980], p5: [105, 63, 20974], split: "95/5" },
-      { size: 25000, mt: [199, 119.4, 20979], p5: [209, 125.4, 20973] },
-      { size: 50000, mt: [279, 167.4, 20978], p5: [289, 173.4, 20972] },
-      { size: 100000, mt: [459, 275.4, 20977], p5: [469, 281.4, 20971] },
-      { size: 200000, mt: [809, 485.4, 20976], p5: [819, 491.4, 20970] },
-    ]),
+      { size: 10000, mt: [95, 52.25, 20980], p5: [105, 57.75, 20974], split: "95/5" },
+      { size: 25000, mt: [199, 109.45, 20979], p5: [209, 114.95, 20973] },
+      { size: 50000, mt: [279, 153.45, 20978], p5: [289, 158.95, 20972] },
+      { size: 100000, mt: [459, 252.45, 20977], p5: [469, 257.95, 20971] },
+      { size: 200000, mt: [809, 444.95, 20976], p5: [819, 450.45, 20970] },
+    ], { explicitSalePrice: true }),
   },
   "Instant": {
     plus: build(RULES_INSTANT_PLUS, [
@@ -99,13 +100,14 @@ export const PRICING_DATA: Record<StepId, Partial<Record<PlanId, PlatformTable>>
       { size: 50000, mt: [469, 281.4, 20617], p5: [479, 287.4, 20618] },
       { size: 100000, mt: [939, 563.4, 20621], p5: [949, 569.4, 20622] },
     ]),
+    // fyt-pro INSTANT (Prime) — product IDs + sale prices from live PRODUCTS_CONFIG
     prime: build(RULES_INSTANT_PRIME, [
-      { size: 5000, mt: [129, 77.4, 22214], p5: [129, 77.4, 22209] },
-      { size: 10000, mt: [239, 143.4, 22213], p5: [239, 143.4, 22206] },
-      { size: 25000, mt: [309, 185.4, 22212], p5: [309, 185.4, 22207] },
-      { size: 50000, mt: [599, 359.4, 22211], p5: [599, 359.4, 22208] },
-      { size: 100000, mt: [1009, 605.4, 22210], p5: [1009, 605.4, 22205] },
-    ]),
+      { size: 5000, mt: [129, 70.95, 22214], p5: [129, 70.95, 22209] },
+      { size: 10000, mt: [239, 131.45, 22213], p5: [239, 131.45, 22206] },
+      { size: 25000, mt: [309, 169.95, 22212], p5: [309, 169.95, 22207] },
+      { size: 50000, mt: [599, 329.45, 22211], p5: [599, 329.45, 22208] },
+      { size: 100000, mt: [1009, 554.95, 22210], p5: [1009, 605.4, 22205] },
+    ], { explicitSalePrice: true }),
   },
 };
 
@@ -151,13 +153,21 @@ export function getEntry(step: StepId, plan: PlanId, platform: PlatformId, size:
   return PRICING_DATA[step]?.[plan]?.[platform]?.[size];
 }
 
-// WooCommerce shareable checkout-link applies the coupon reliably.
-// Plain /checkout/?add-to-cart=…&coupon=… is ignored and the site's
-// auto-applied summer40 (40%) coupon wins instead.
+// WooCommerce shareable checkout-link applies the coupon reliably for challenge SKUs.
+// Instant Prime SKUs use plain add-to-cart (checkout-link is unreliable for those products).
 const CHECKOUT_LINK_BASE = "https://fundingyourtrades.com/checkout-link/?products=";
+const CHECKOUT_ADD_TO_CART_BASE = "https://fundingyourtrades.com/checkout/?add-to-cart=";
 export const CHECKOUT_COUPON_CODE = "NEWFYT";
 
+const INSTANT_PRIME_PRODUCT_IDS = new Set<number>([
+  22214, 22213, 22212, 22211, 22210,
+  22209, 22206, 22207, 22208, 22205,
+]);
+
 export function checkoutUrl(productId: number): string {
+  if (INSTANT_PRIME_PRODUCT_IDS.has(productId)) {
+    return `${CHECKOUT_ADD_TO_CART_BASE}${productId}`;
+  }
   return `${CHECKOUT_LINK_BASE}${productId}:1&coupon=${CHECKOUT_COUPON_CODE}`;
 }
 

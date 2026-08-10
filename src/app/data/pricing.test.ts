@@ -119,12 +119,21 @@ describe("known product IDs and prices (spot checks against live config)", () =>
     expect(e.productId).toBe(20619);
     expect(e.priceNew).toBe(59.95);
   });
-  it("Instant Prime platform-5 $100K → 22205 (same price as match-trader)", () => {
+  it("Instant Prime match-trader $100K → 22210 @ 1009/554.95", () => {
+    const e = getEntry("Instant", "prime", "match-trader", 100000)!;
+    expect(e.productId).toBe(22210);
+    expect(e.priceOld).toBe(1009);
+    expect(e.priceNew).toBe(554.95);
+  });
+  it("Instant Prime platform-5 $100K → 22205 @ 1009/605.4", () => {
     const p5 = getEntry("Instant", "prime", "platform-5", 100000)!;
-    const mt = getEntry("Instant", "prime", "match-trader", 100000)!;
     expect(p5.productId).toBe(22205);
-    expect(p5.priceOld).toBe(mt.priceOld);
-    expect(p5.priceNew).toBe(mt.priceNew);
+    expect(p5.priceOld).toBe(1009);
+    expect(p5.priceNew).toBe(605.4);
+  });
+  it("Instant Prime uses plain add-to-cart checkout URLs", () => {
+    expect(checkoutUrl(22214)).toBe("https://fundingyourtrades.com/checkout/?add-to-cart=22214");
+    expect(checkoutUrl(22205)).toBe("https://fundingyourtrades.com/checkout/?add-to-cart=22205");
   });
   it("2-Step $10K split is 95/5", () => {
     expect(getEntry("2-Step", "classic", "match-trader", 10000)!.split).toBe("95/5");
