@@ -271,6 +271,13 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
     expect(app).toContain('import { useMonotonicProgress } from "@/app/motion/scrollProgress";');
   });
 
+  it("BelowFold.tsx's actual import now drops the mobile-only reveal constants (mobile is fully static, no longer scroll-linked)", () => {
+    const app = read("./BelowFold.tsx");
+    expect(app).toContain('import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/motion/proveSkillReveal";');
+    expect(app).not.toContain("PROVE_SKILL_MOBILE_CARD_REVEALS");
+    expect(app).not.toContain("PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH");
+  });
+
   it("imports useRef alongside the existing React hooks", () => {
     const app = read("./App.tsx");
     expect(app).toContain('import { useState, useEffect, useRef, useCallback, useMemo, memo, Fragment, lazy, Suspense, Component, type ReactNode } from "react";');
@@ -282,22 +289,26 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
     expect(app).toContain('className="sticky top-0 h-screen flex flex-col items-center justify-start pt-[100px] gap-0"');
   });
 
-  it("gives mobile its own pinned scroll-reveal wrapper", () => {
+  it("renders mobile as fully static -- no pinned/sticky wrapper, no scroll-tracking ref, no per-card reveal motion", () => {
     const app = read("./BelowFold.tsx");
-    expect(app).toContain('style={{ height: `${PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH}vh` }}');
-    expect(app).toContain('className="sticky top-0 h-[100svh] flex flex-col items-center justify-start pt-[96px] gap-[32px]"');
-    expect(app.match(/PROVE_SKILL_CARDS\.map/g)?.length).toBe(1);
+    const proveYourSkillBody = sliceToNextFunction(app, "function ProveYourSkill()");
+    expect(proveYourSkillBody).toContain('className="lg:hidden relative w-full flex flex-col items-center pt-[96px] gap-[32px]"');
+    expect(proveYourSkillBody).not.toContain("mobileScrollRef");
+    expect(proveYourSkillBody).not.toContain("mobileRevealProgress");
+    expect(proveYourSkillBody).not.toContain("mobileScrollYProgress");
+    expect(proveYourSkillBody).not.toContain("sticky top-0 h-[100svh]");
+    expect(proveYourSkillBody).not.toContain("PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH");
+    expect(proveYourSkillBody.match(/PROVE_SKILL_CARDS\.map/g)?.length).toBe(1);
   });
 
-  it("drives the mobile cascade with ProveSkillRevealCard, indexed per-card via PROVE_SKILL_MOBILE_CARD_REVEALS", () => {
+  it("mobile cards render via plain divs with animated={false}, not ProveSkillRevealCard", () => {
     const app = read("./BelowFold.tsx");
-    const mobileStart = app.indexOf('<div ref={mobileScrollRef} className="lg:hidden relative w-full"');
+    const proveYourSkillBody = sliceToNextFunction(app, "function ProveYourSkill()");
+    const mobileStart = proveYourSkillBody.indexOf('className="lg:hidden relative w-full flex flex-col items-center pt-[96px] gap-[32px]"');
     expect(mobileStart).toBeGreaterThan(-1);
-    const nextSectionStart = app.indexOf("// ─── PROOF IN NUMBERS ─────────────────────────────────────────────────────────", mobileStart);
-    expect(nextSectionStart).toBeGreaterThan(mobileStart);
-    const mobileSection = app.slice(mobileStart, nextSectionStart);
-    expect((mobileSection.match(/<ProveSkillRevealCard/g) ?? []).length).toBe(1);
-    expect(mobileSection).toContain("reveal={PROVE_SKILL_MOBILE_CARD_REVEALS[i]}");
+    const mobileSection = proveYourSkillBody.slice(mobileStart);
+    expect(mobileSection).not.toContain("<ProveSkillRevealCard");
+    expect(mobileSection).toContain("<ProveSkillCard text={c.text} animated={false} />");
     expect(mobileSection).toContain('<div className="flex flex-col gap-[12px] w-full items-center">');
   });
 
@@ -339,14 +350,11 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
     expect(app).toContain("const revealProgress = useMonotonicProgress(scrollYProgress);");
   });
 
-  it("wires mobile's ratchet through useMonotonicProgress too, not raw scroll progress", () => {
+  it("no longer creates a second (mobile) useMonotonicProgress ratchet -- mobile has no scroll-linked progress at all", () => {
     const app = read("./BelowFold.tsx");
-    expect(app).toContain("const mobileRevealProgress = useMonotonicProgress(mobileScrollYProgress);");
-  });
-
-  it("passes the ratcheted mobileRevealProgress (not raw mobileScrollYProgress) into the mobile cards", () => {
-    const app = read("./BelowFold.tsx");
-    expect(app).toContain("progress={mobileRevealProgress}");
+    const proveYourSkillBody = sliceToNextFunction(app, "function ProveYourSkill()");
+    expect(proveYourSkillBody.match(/useMonotonicProgress/g)?.length).toBe(1);
+    expect(proveYourSkillBody).not.toContain("mobileRevealProgress");
   });
 
   it("sizes mobile's cards bigger than before while leaving desktop's size pixel-for-pixel unchanged", () => {

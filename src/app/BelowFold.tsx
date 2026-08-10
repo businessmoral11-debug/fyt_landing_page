@@ -161,7 +161,7 @@ import {
   LIVE_PAYOUTS_NOISE_OPACITY,
 } from "@/app/motion/livePayoutsMotion";
 import { HeroSceneGate } from "@/app/three/HeroSceneGate";
-import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, PROVE_SKILL_MOBILE_CARD_REVEALS, PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/motion/proveSkillReveal";
+import { PROVE_SKILL_CARD_REVEALS, PROVE_SKILL_SCROLL_HEIGHT_VH, type CardReveal } from "@/app/motion/proveSkillReveal";
 import { useMonotonicProgress } from "@/app/motion/scrollProgress";
 import {
   HOW_IT_WORKS_SCROLL_HEIGHT_VH,
@@ -436,8 +436,17 @@ const PROVE_SKILL_CARDS = [
   { id: "delayed-rewards", text: "Delayed rewards damage trust." },
 ] as const;
 
-function StatusIndicator() {
+function StatusIndicator({ animated = true }: { animated?: boolean }) {
   const reduceMotion = useReducedMotion();
+  if (!animated) {
+    return (
+      <div
+        aria-hidden="true"
+        className="rounded-full shrink-0"
+        style={{ width: 7, height: 7, background: "#3b82f6", boxShadow: "0 0 8px rgba(59,130,246,0.6)" }}
+      />
+    );
+  }
   return (
     <motion.div
       aria-hidden="true"
@@ -449,8 +458,31 @@ function StatusIndicator() {
   );
 }
 
-function ProveSkillCard({ text, floatDelay = 0 }: { text: string; floatDelay?: number }) {
+/**
+ * `animated` defaults to true so every existing (desktop) call site is
+ * byte-for-byte unchanged. Mobile passes `animated={false}` for a fully
+ * static render: no float wrapper, no tilt/whileHover motion.div, no
+ * pulsing status dot -- same markup/classes/content otherwise.
+ */
+function ProveSkillCard({ text, floatDelay = 0, animated = true }: { text: string; floatDelay?: number; animated?: boolean }) {
   const tilt = useTilt<HTMLDivElement>(4);
+  if (!animated) {
+    return (
+      <div className="group">
+        <div
+          className="relative overflow-hidden flex gap-[14px] lg:gap-[12px] items-center rounded-[14px] px-[18px] lg:px-[16px] py-[16px] lg:py-[14px] w-[260px] lg:w-[240px] bg-[rgba(255,255,255,0.9)] lg:bg-[rgba(255,255,255,0.72)] lg:backdrop-blur-[14px] transition-[border-color,box-shadow] duration-300 group-hover:border-[rgba(59,130,246,0.4)]"
+          style={{
+            border: "1px solid rgba(59,130,246,0.14)",
+            boxShadow: "0 14px 34px -16px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.7)",
+          }}
+        >
+          <div aria-hidden="true" className="absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.55), transparent)" }} />
+          <StatusIndicator animated={false} />
+          <p className="relative font-['Inter:Regular',sans-serif] font-normal text-[#1f2430] text-[16px] leading-[1.4]">{text}</p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="prove-skill-float" style={{ animationDelay: `${floatDelay}s` }}>
       <motion.div
@@ -561,10 +593,6 @@ function ProveYourSkill() {
   const revealProgress = useMonotonicProgress(scrollYProgress);
   const reduceMotion = useReducedMotion();
 
-  const mobileScrollRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress: mobileScrollYProgress } = useScroll({ target: mobileScrollRef, offset: ["start start", "end end"] });
-  const mobileRevealProgress = useMonotonicProgress(mobileScrollYProgress);
-
   const sectionRef = useRef<HTMLDivElement>(null);
   const [cardAnimsActive, setCardAnimsActive] = useState(true);
   useEffect(() => {
@@ -616,24 +644,20 @@ function ProveYourSkill() {
           </div>
         </div>
 
-        <div ref={mobileScrollRef} className="lg:hidden relative w-full" style={{ height: `${PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH}vh` }}>
-          <div className="sticky top-0 h-[100svh] flex flex-col items-center justify-start pt-[96px] gap-[32px]">
-            <div className="text-center px-[8px]">
-              <ProveSkillHeading size="text-[28px]" animate={false} />
-            </div>
-            <div className="flex flex-col gap-[12px] w-full items-center">
-              {PROVE_SKILL_CARDS.map((c, i) => (
-                <ProveSkillRevealCard
-                  key={c.id}
-                  className="shrink-0"
-                  progress={mobileRevealProgress}
-                  reveal={PROVE_SKILL_MOBILE_CARD_REVEALS[i]}
-                  reduceMotion={reduceMotion}
-                >
-                  <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
-                </ProveSkillRevealCard>
-              ))}
-            </div>
+        {/* Mobile: fully static -- no pinned/sticky scroll-jacking, no
+            scroll-linked reveal, no per-card float/tilt/hover motion. Same
+            padding/gaps/content as the pinned version, just rendered
+            directly in normal document flow. Desktop above is untouched. */}
+        <div className="lg:hidden relative w-full flex flex-col items-center pt-[96px] gap-[32px]">
+          <div className="text-center px-[8px]">
+            <ProveSkillHeading size="text-[28px]" animate={false} />
+          </div>
+          <div className="flex flex-col gap-[12px] w-full items-center">
+            {PROVE_SKILL_CARDS.map((c) => (
+              <div key={c.id} className="shrink-0">
+                <ProveSkillCard text={c.text} animated={false} />
+              </div>
+            ))}
           </div>
         </div>
       </div>
