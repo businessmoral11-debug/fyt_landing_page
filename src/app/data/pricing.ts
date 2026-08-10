@@ -151,11 +151,14 @@ export function getEntry(step: StepId, plan: PlanId, platform: PlatformId, size:
   return PRICING_DATA[step]?.[plan]?.[platform]?.[size];
 }
 
-const CHECKOUT_BASE = "https://fundingyourtrades.com/checkout/?add-to-cart=";
+// WooCommerce shareable checkout-link applies the coupon reliably.
+// Plain /checkout/?add-to-cart=…&coupon=… is ignored and the site's
+// auto-applied summer40 (40%) coupon wins instead.
+const CHECKOUT_LINK_BASE = "https://fundingyourtrades.com/checkout-link/?products=";
 export const CHECKOUT_COUPON_CODE = "NEWFYT";
 
 export function checkoutUrl(productId: number): string {
-  return `${CHECKOUT_BASE}${productId}&coupon=${CHECKOUT_COUPON_CODE}`;
+  return `${CHECKOUT_LINK_BASE}${productId}:1&coupon=${CHECKOUT_COUPON_CODE}`;
 }
 
 export function fmtSize(n: number): string {

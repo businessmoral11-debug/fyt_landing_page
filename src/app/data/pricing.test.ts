@@ -138,8 +138,10 @@ describe("known product IDs and prices (spot checks against live config)", () =>
 });
 
 describe("helpers", () => {
-  it("checkoutUrl builds an absolute fundingyourtrades.com add-to-cart URL with NEWFYT coupon", () => {
-    expect(checkoutUrl(1231)).toBe("https://fundingyourtrades.com/checkout/?add-to-cart=1231&coupon=NEWFYT");
+  it("checkoutUrl uses WooCommerce checkout-link so NEWFYT applies (not auto summer40)", () => {
+    expect(checkoutUrl(1231)).toBe(
+      "https://fundingyourtrades.com/checkout-link/?products=1231:1&coupon=NEWFYT"
+    );
   });
 
   it("fmtSize formats thousands as $NK", () => {
