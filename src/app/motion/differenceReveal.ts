@@ -69,13 +69,26 @@ export const DIFFERENCE_CONTENT_ENTER_REVEAL: DifferenceCrossfadeReveal = {
  */
 export const DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH = 125;
 
+/**
+ * DifferenceScrollLayer only ever animates `x` (opacity stays 1 throughout
+ * -- see DifferenceCrossfadeReveal's opacityFrom/opacityTo, both 1 here and
+ * on desktop). The desktop reveals slide +/-1400px, sized for its ~1280px
+ * layout. Mobile inherited that same 1400px distance against a ~390px
+ * viewport, so each element only needed a fraction of its travel to clear
+ * the screen -- the heading was fully off-screen (and the table not yet
+ * on-screen) for a wide middle stretch of the crossfade, showing nothing
+ * but blank white background mid-scroll. Shrinking the distance to clear a
+ * mobile viewport (with margin up to 430px wide) keeps both elements
+ * on-screen, actively sliding, for far more of the same fadeStart/fadeEnd
+ * timing -- closing that gap without touching the timing curve itself.
+ */
 export const DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL: DifferenceCrossfadeReveal = {
   fadeStart: 0,
   fadeEnd: 0.65,
   opacityFrom: 1,
   opacityTo: 1,
   xFrom: 0,
-  xTo: -1400,
+  xTo: -480,
 };
 
 export const DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL: DifferenceCrossfadeReveal = {
@@ -83,6 +96,6 @@ export const DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL: DifferenceCrossfadeReveal =
   fadeEnd: 0.8,
   opacityFrom: 1,
   opacityTo: 1,
-  xFrom: 1400,
+  xFrom: 480,
   xTo: 0,
 };
