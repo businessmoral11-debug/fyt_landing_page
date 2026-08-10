@@ -788,7 +788,20 @@ describe("ProductShowcase Trusted Support Team card (spec v4 blue container)", (
     expect(gridBody).toContain('bg-white rounded-full px-[20px] py-[12px]');
     expect(gridBody).toContain('style={{ color: SUPPORT_CARD_ACCENT_BLUE }}>Chat with us');
     expect(gridBody).toContain('stroke={SUPPORT_CARD_ACCENT_BLUE} strokeWidth="1.6"');
-    expect(gridBody).toContain('id="intercom-chat-button"');
+    expect(gridBody).toContain("onClick={openIntercomMessenger}");
+  });
+
+  it("boots the real Intercom messenger from a bottom-right custom launcher", () => {
+    const app = read("./App.tsx");
+    expect(app).toContain('id="intercom-chat-button"');
+    expect(app).toContain("intercom-lightweight-app-launcher");
+    expect(app).toContain("<IntercomLauncher />");
+    expect(app).toContain("bootIntercom");
+    const intercom = read("./intercom.ts");
+    expect(intercom).toContain("widget.intercom.io/widget/");
+    expect(intercom).toContain("hide_default_launcher: true");
+    expect(intercom).toContain('custom_launcher_selector: INTERCOM_LAUNCHER_SELECTOR');
+    expect(intercom).toContain('#intercom-chat-button');
   });
 
   it("shrinks the Trusted Platform card's internal spacing (connector gap, logo padding, trailer margin) so it no longer towers over the recolored Support card", () => {

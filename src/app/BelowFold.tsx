@@ -15,6 +15,7 @@ import imgMatchTraderLogo from "@/assets/live-site/platform-logos/match-trader.p
 import imgPlatform5Logo from "@/assets/live-site/platform-logos/platform-5.png";
 import { STEP_PLANS, STEP_SIZES, getEntry, checkoutUrl, fmtSize, planFlag, PLATFORM_OPTIONS, type StepId, type PlanId, type PlatformId } from "@/app/data/pricing";
 import { HERO_CONTENT, KEY_METRICS, FOOTER_COLUMNS, FOOTER_LINKS, FAQ_ITEMS, TRUSTINDEX_WIDGET } from "@/app/data/liveSiteContent";
+import { openIntercomMessenger } from "@/app/intercom";
 const loadGlobe = () => import("@/app/globe");
 const loadRecentVerifiedRewards = () => import("@/app/recentVerifiedRewards");
 const loadFeaturedCertificates = () => import("@/app/featuredCertificates");
@@ -3775,7 +3776,6 @@ function ProductShowcase() {
   const prefersReducedMotion = useReducedMotion();
   const tilt = useTilt<HTMLDivElement>(PRODUCT_DASHBOARD_TILT_MAX_DEG);
   const headingWords = OVERVIEW_HEADING_TEXT.split(" ");
-  const [chatOpen, setChatOpen] = useState(false);
 
   return (
     <div className="relative shrink-0 w-full" style={{ background: "#F8FAFF", boxShadow: "inset 0 1px 0 rgba(0,0,0,0.03), inset 0 -1px 0 rgba(0,0,0,0.03)" }}>
@@ -4005,19 +4005,11 @@ function ProductShowcase() {
               </div>
               <motion.button
                 type="button"
-                id="intercom-chat-button"
                 whileHover={prefersReducedMotion ? undefined : { scale: 1.04, y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 22 }}
                 className="group relative inline-flex items-center gap-[8px] bg-white rounded-full px-[20px] py-[12px] whitespace-nowrap shrink-0 self-center overflow-hidden cursor-pointer border-0"
-                onClick={() => {
-                  const intercom = (window as Window & { Intercom?: (command: string) => void }).Intercom;
-                  if (typeof intercom === "function") {
-                    intercom("show");
-                    return;
-                  }
-                  setChatOpen(true);
-                }}
+                onClick={openIntercomMessenger}
               >
                 {!prefersReducedMotion && (
                   <motion.span
@@ -4044,11 +4036,9 @@ function ProductShowcase() {
           </motion.div>
         </div>
       </motion.div>
-      <SupportChatPanel open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }
-
 
 function Faq() {
   const prefersReducedMotion = useReducedMotion();
