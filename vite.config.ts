@@ -18,6 +18,8 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
+  base: '/wp-content/react-home/',
+  
   plugins: [
     figmaAssetResolver(),
     react(),
