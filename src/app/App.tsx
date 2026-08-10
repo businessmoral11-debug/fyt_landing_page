@@ -454,8 +454,8 @@ function Nav() {
           className="border-b rounded-b-[22px] transition-[background-color,backdrop-filter,box-shadow] duration-300 ease-out"
           style={{
             background: scrolled ? "rgba(10,14,24,0.85)" : "rgba(10,14,24,0.35)",
-            backdropFilter: scrolled ? "blur(28px) saturate(180%)" : "blur(20px) saturate(180%)",
-            WebkitBackdropFilter: scrolled ? "blur(28px) saturate(180%)" : "blur(20px) saturate(180%)",
+            backdropFilter: scrolled ? "blur(16px) saturate(180%)" : "blur(12px) saturate(180%)",
+            WebkitBackdropFilter: scrolled ? "blur(16px) saturate(180%)" : "blur(12px) saturate(180%)",
             borderColor: "rgba(255,255,255,0.08)",
             boxShadow: scrolled ? "0 16px 48px rgba(0,0,0,0.45)" : "0 12px 40px rgba(0,0,0,0.35)",
           }}
