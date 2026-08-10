@@ -199,9 +199,6 @@ import {
   DIFFERENCE_PIN_SCROLL_HEIGHT_VH,
   DIFFERENCE_HEADING_EXIT_REVEAL,
   DIFFERENCE_CONTENT_ENTER_REVEAL,
-  DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH,
-  DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL,
-  DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL,
   type DifferenceCrossfadeReveal,
 } from "@/app/motion/differenceReveal";
 
@@ -3442,43 +3439,12 @@ function DifferencePinnedCrossfade({ reduceMotion }: { reduceMotion: boolean | n
 }
 
 function DifferenceMobilePinnedCrossfade({ reduceMotion }: { reduceMotion: boolean | null }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: scrollRef, offset: ["start start", "end end"] });
-  /**
-   * Mobile only. DifferenceScrollLayer maps this straight to `x` via
-   * useTransform, so without smoothing the slide snaps to each raw scroll
-   * sample 1:1 -- on mobile, where scroll events land in coarser, less
-   * frequent chunks than desktop wheel/trackpad input, that reads as the
-   * "frame-by-frame"/stuck-then-jump feeling rather than a continuous
-   * slide. Springing it interpolates between samples instead of snapping,
-   * without changing the crossfade's direction, distance, or end state.
-   * Desktop's DifferencePinnedCrossfade is untouched -- it uses the raw
-   * scrollYProgress directly, same as before.
-   */
-  const smoothProgress = useSpring(scrollYProgress, { stiffness: 260, damping: 32, mass: 0.5 });
-
   return (
-    <div ref={scrollRef} className="lg:hidden relative w-full" style={{ height: `${DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH}vh` }}>
-      <div className="sticky top-0 min-h-[100dvh] flex flex-col items-center justify-start pt-[96px]">
-        <div className="relative w-full overflow-x-hidden">
-          <DifferenceScrollLayer
-            className="absolute inset-0 flex items-center justify-center"
-            progress={smoothProgress}
-            reveal={DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL}
-          >
-            <DifferenceHeadingText reduceMotion={reduceMotion} />
-          </DifferenceScrollLayer>
-          <DifferenceScrollLayer
-            className="flex flex-col gap-[20px] items-center w-full"
-            progress={smoothProgress}
-            reveal={DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL}
-          >
-            <DifferenceAdvantageBlock />
-            <DifferenceComparisonTableMobile />
-            <DifferenceTrustBar />
-          </DifferenceScrollLayer>
-        </div>
-      </div>
+    <div className="lg:hidden flex flex-col gap-[20px] items-center w-full">
+      <DifferenceHeadingText reduceMotion={reduceMotion} />
+      <DifferenceAdvantageBlock />
+      <DifferenceComparisonTableMobile />
+      <DifferenceTrustBar />
     </div>
   );
 }
