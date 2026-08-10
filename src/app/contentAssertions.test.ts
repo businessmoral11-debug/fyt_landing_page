@@ -794,14 +794,15 @@ describe("ProductShowcase Trusted Support Team card (spec v4 blue container)", (
   it("boots the real Intercom messenger from a bottom-right custom launcher", () => {
     const app = read("./App.tsx");
     expect(app).toContain('id="intercom-chat-button"');
-    expect(app).toContain("intercom-lightweight-app-launcher");
+    expect(app).toContain("fyt-intercom-launcher");
+    expect(app).not.toContain("intercom-lightweight-app-launcher");
     expect(app).toContain("<IntercomLauncher />");
     expect(app).toContain("bootIntercom");
+    expect(app).toContain("toggleIntercomMessenger");
     const intercom = read("./intercom.ts");
     expect(intercom).toContain("widget.intercom.io/widget/");
     expect(intercom).toContain("hide_default_launcher: true");
-    expect(intercom).toContain('custom_launcher_selector: INTERCOM_LAUNCHER_SELECTOR');
-    expect(intercom).toContain('#intercom-chat-button');
+    expect(intercom).not.toContain("custom_launcher_selector");
   });
 
   it("shrinks the Trusted Platform card's internal spacing (connector gap, logo padding, trailer margin) so it no longer towers over the recolored Support card", () => {

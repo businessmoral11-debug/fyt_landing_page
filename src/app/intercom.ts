@@ -1,91 +1,124 @@
 declare global {
   interface Window {
     Intercom?: ((command: string, ...args: unknown[]) => void) & {
+      q?: unknown[];
+      c?: (args: IArguments | unknown[]) => void;
       booted?: boolean;
     };
     intercomSettings?: Record<string, unknown>;
-    attachEvent?: (event: string, listener: EventListener) => void;
   }
 }
 
 export const INTERCOM_APP_ID =
   (import.meta.env.VITE_INTERCOM_APP_ID as string | undefined)?.trim() || "a291av90";
 
-const INTERCOM_LAUNCHER_SELECTOR = "#intercom-chat-button";
+let bootPromise: Promise<boolean> | null = null;
+let messengerVisible = false;
+const visibilityListeners = new Set<(open: boolean) => void>();
 
-let bootPromise: Promise<void> | null = null;
+function notifyVisibility(open: boolean) {
+  messengerVisible = open;
+  visibilityListeners.forEach((listener) => listener(open));
+}
+
+export function subscribeIntercomVisibility(listener: (open: boolean) => void): () => void {
+  visibilityListeners.add(listener);
+  listener(messengerVisible);
+  return () => {
+    visibilityListeners.delete(listener);
+  };
+}
+
+function ensureIntercomStub() {
+  const w = window;
+  if (typeof w.Intercom === "function") return;
+
+  const stub = function (...args: unknown[]) {
+    stub.q = stub.q || [];
+    stub.q.push(args);
+  } as NonNullable<Window["Intercom"]>;
+  stub.q = [];
+  stub.c = function (args) {
+    stub.q = stub.q || [];
+    stub.q.push(args);
+  };
+  w.Intercom = stub;
+}
 
 function loadIntercomScript(appId: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    if (document.getElementById("intercom-script")) {
-      resolve();
+    const existing = document.getElementById("intercom-script") as HTMLScriptElement | null;
+    if (existing) {
+      if (existing.dataset.loaded === "true") resolve();
+      else {
+        existing.addEventListener("load", () => resolve(), { once: true });
+        existing.addEventListener("error", () => reject(new Error("Failed to load Intercom widget")), { once: true });
+      }
       return;
     }
 
-    const w = window;
-    const ic = w.Intercom;
-    if (typeof ic === "function") {
-      resolve();
-      return;
-    }
-
-    const queue = function (...args: unknown[]) {
-      const i = w.Intercom as ((command: string, ...args: unknown[]) => void) & {
-        q?: unknown[];
-      };
-      i.q = i.q || [];
-      i.q.push(args);
-    };
-    w.Intercom = queue as typeof w.Intercom;
+    ensureIntercomStub();
 
     const script = document.createElement("script");
     script.id = "intercom-script";
+    script.type = "text/javascript";
     script.async = true;
     script.src = `https://widget.intercom.io/widget/${appId}`;
-    script.onload = () => resolve();
+    script.onload = () => {
+      script.dataset.loaded = "true";
+      resolve();
+    };
     script.onerror = () => reject(new Error("Failed to load Intercom widget"));
-    const firstScript = document.getElementsByTagName("script")[0];
-    firstScript?.parentNode?.insertBefore(script, firstScript);
+    document.head.appendChild(script);
   });
 }
 
-/** Boot the real Intercom messenger (hides default launcher; uses #intercom-chat-button). */
-export function bootIntercom(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
+/** Boot the real Intercom messenger and hide its default launcher bubble. */
+export function bootIntercom(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
   if (bootPromise) return bootPromise;
 
   bootPromise = (async () => {
-    window.intercomSettings = {
+    const settings = {
       api_base: "https://api-iam.intercom.io",
       app_id: INTERCOM_APP_ID,
       hide_default_launcher: true,
-      custom_launcher_selector: INTERCOM_LAUNCHER_SELECTOR,
     };
+    window.intercomSettings = settings;
 
     await loadIntercomScript(INTERCOM_APP_ID);
 
-    if (typeof window.Intercom === "function") {
-      window.Intercom("boot", window.intercomSettings);
-      window.Intercom("update", window.intercomSettings);
-    }
+    if (typeof window.Intercom !== "function") return false;
+
+    // Widget script replaces the stub; boot/update attaches the messenger.
+    window.Intercom("boot", settings);
+    window.Intercom("update", settings);
+    window.Intercom("onShow", () => notifyVisibility(true));
+    window.Intercom("onHide", () => notifyVisibility(false));
+    return true;
   })().catch((err) => {
     bootPromise = null;
     console.error("[Intercom]", err);
+    return false;
   });
 
-  return bootPromise ?? Promise.resolve();
+  return bootPromise;
 }
 
-export function openIntercomMessenger(): void {
-  void bootIntercom().then(() => {
-    if (typeof window.Intercom === "function") {
-      window.Intercom("show");
-    }
-  });
+export async function openIntercomMessenger(): Promise<void> {
+  const ready = await bootIntercom();
+  if (!ready || typeof window.Intercom !== "function") return;
+  window.Intercom("show");
 }
 
-export function hideIntercomMessenger(): void {
-  if (typeof window.Intercom === "function") {
-    window.Intercom("hide");
-  }
+export async function hideIntercomMessenger(): Promise<void> {
+  if (typeof window.Intercom !== "function") return;
+  window.Intercom("hide");
+}
+
+export async function toggleIntercomMessenger(): Promise<void> {
+  const ready = await bootIntercom();
+  if (!ready || typeof window.Intercom !== "function") return;
+  if (messengerVisible) window.Intercom("hide");
+  else window.Intercom("show");
 }

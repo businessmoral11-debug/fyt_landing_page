@@ -20,7 +20,7 @@ import { heroSweepCss } from "@/app/motion/heroSweep";
 import { HERO_CONTENT, KEY_METRICS, NAV_LINKS, FOOTER_COLUMNS, FOOTER_LINKS, FAQ_ITEMS } from "@/app/data/liveSiteContent";
 import { PROMO_ITEMS, PROMO_DEADLINE, formatCountdown, type PromoItem } from "@/app/data/promoBanner";
 import { countryFlagUrl } from "@/app/api/rewardsApi";
-import { bootIntercom, openIntercomMessenger, hideIntercomMessenger } from "@/app/intercom";
+import { bootIntercom, toggleIntercomMessenger, subscribeIntercomVisibility } from "@/app/intercom";
 const loadGlobe = () => import("@/app/globe");
 const loadRecentVerifiedRewards = () => import("@/app/recentVerifiedRewards");
 const loadFeaturedCertificates = () => import("@/app/featuredCertificates");
@@ -1119,28 +1119,18 @@ class BelowFoldErrorBoundary extends Component<{ children: ReactNode }, { hasErr
 function IntercomLauncher() {
   const [open, setOpen] = useState(false);
 
-  useEffect(() => {
-    void bootIntercom().then(() => {
-      if (typeof window.Intercom !== "function") return;
-      window.Intercom("onShow", () => setOpen(true));
-      window.Intercom("onHide", () => setOpen(false));
-    });
-  }, []);
+  useEffect(() => subscribeIntercomVisibility(setOpen), []);
 
   return createPortal(
     <button
       type="button"
       id="intercom-chat-button"
-      role="button"
-      tabIndex={0}
       aria-label={open ? "Close Intercom Messenger" : "Open Intercom Messenger"}
-      aria-live="polite"
       aria-expanded={open}
       onClick={() => {
-        if (open) hideIntercomMessenger();
-        else openIntercomMessenger();
+        void toggleIntercomMessenger();
       }}
-      className="intercom-lightweight-app-launcher intercom-launcher fixed z-[210] flex items-center justify-center border-0 cursor-pointer p-0"
+      className="fyt-intercom-launcher fixed z-[2147483000] flex items-center justify-center border-0 cursor-pointer p-0 overflow-hidden"
       style={{
         right: "max(20px, env(safe-area-inset-right, 0px))",
         bottom: "max(20px, env(safe-area-inset-bottom, 0px))",
@@ -1152,20 +1142,20 @@ function IntercomLauncher() {
       }}
     >
       <span
-        className="intercom-lightweight-app-launcher-icon intercom-lightweight-app-launcher-icon-open absolute inset-0 flex items-center justify-center transition-opacity duration-200"
+        className="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200"
         style={{ opacity: open ? 0 : 1, color: "#0B1220" }}
         aria-hidden={open}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 32" width="28" height="32" fill="currentColor">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 28 32" width="22" height="24" fill="currentColor" style={{ display: "block", maxWidth: 22, maxHeight: 24 }}>
           <path d="M28 32s-4.714-1.855-8.527-3.34H3.437C1.54 28.66 0 27.026 0 25.013V3.644C0 1.633 1.54 0 3.437 0h21.125c1.898 0 3.437 1.632 3.437 3.645v18.404H28V32zm-4.139-11.982a.88.88 0 00-1.292-.105c-.03.026-3.015 2.681-8.57 2.681-5.486 0-8.517-2.636-8.571-2.684a.88.88 0 00-1.29.107 1.01 1.01 0 00-.219.708.992.992 0 00.318.664c.142.128 3.537 3.15 9.762 3.15 6.226 0 9.621-3.022 9.763-3.15a.992.992 0 00.317-.664 1.01 1.01 0 00-.218-.707z" />
         </svg>
       </span>
       <span
-        className="intercom-lightweight-app-launcher-icon intercom-lightweight-app-launcher-icon-minimize absolute inset-0 flex items-center justify-center transition-opacity duration-200"
+        className="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-200"
         style={{ opacity: open ? 1 : 0, color: "#ffffff" }}
         aria-hidden={!open}
       >
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ display: "block", maxWidth: 20, maxHeight: 20 }}>
           <path
             fillRule="evenodd"
             clipRule="evenodd"
