@@ -234,7 +234,7 @@ describe("Mobile hero radar — two-row 5-label layout", () => {
 describe("Featured-In section background and logo sizing", () => {
   it("matches the hero's pure black background instead of the spec's #0b0c11", () => {
     const app = read("./BelowFold.tsx");
-    expect(app).toContain('<div className="bg-black relative shrink-0 w-full">');
+    expect(app).toContain('className="bg-black relative shrink-0 w-full"');
   });
   it("sizes the four correctly-branded logos per the v3 spec, not the old undersized values", () => {
     const app = read("./BelowFold.tsx");

@@ -384,8 +384,20 @@ function FeaturedInMobileRow() {
 
 function FeaturedIn() {
   const reduceMotion = useReducedMotion();
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [animsActive, setAnimsActive] = useState(true);
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => setAnimsActive(!!entries[0]?.isIntersecting), {
+      rootMargin: "600px 0px 600px 0px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="bg-black relative shrink-0 w-full">
+    <div ref={sectionRef} className="bg-black relative shrink-0 w-full">
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <AmbientBlob className="left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2" color="rgba(59,130,246,0.14)" size={560} duration={22} />
       </div>
@@ -405,7 +417,7 @@ function FeaturedIn() {
           }}
         >
           <div aria-hidden className="absolute border border-[rgba(59,130,246,0.15)] border-solid inset-0 pointer-events-none rounded-[20px]" />
-          {!reduceMotion && <LightSweep />}
+          {!reduceMotion && animsActive && <LightSweep />}
           <FeaturedInDesktopRow />
           <FeaturedInMobileRow />
         </motion.div>
@@ -549,8 +561,24 @@ function ProveYourSkill() {
   const { scrollYProgress: mobileScrollYProgress } = useScroll({ target: mobileScrollRef, offset: ["start start", "end end"] });
   const mobileRevealProgress = useMonotonicProgress(mobileScrollYProgress);
 
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [cardAnimsActive, setCardAnimsActive] = useState(true);
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => setCardAnimsActive(!!entries[0]?.isIntersecting), {
+      rootMargin: "600px 0px 600px 0px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="bg-white relative shrink-0 w-full" style={{ boxShadow: "inset 0 1px 0 rgba(0,0,0,0.03), inset 0 -1px 0 rgba(0,0,0,0.03)" }}>
+    <div
+      ref={sectionRef}
+      className={`bg-white relative shrink-0 w-full ${cardAnimsActive ? "" : "prove-skill-anims-paused"}`}
+      style={{ boxShadow: "inset 0 1px 0 rgba(0,0,0,0.03), inset 0 -1px 0 rgba(0,0,0,0.03)" }}
+    >
       <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
         <StaticGlow className="left-[8%] top-[20%]" color="rgba(59,130,246,0.05)" size={520} />
         <StaticGlow className="right-[6%] bottom-[10%]" color="rgba(96,165,250,0.04)" size={420} />

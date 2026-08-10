@@ -329,14 +329,28 @@ body::-webkit-scrollbar {
 /* Once the Hero section scrolls far enough out of view, App.tsx's Hero()
    adds this class to stop its always-mounted ambient animations (starfield
    twinkle, orbit sweep beam, orbit label glow) from continuing to run
-   in the background for the rest of the page's scroll session — otherwise
-   these will-change-promoted layers keep costing GPU/compositor work long
-   after they're no longer visible. */
+   in the background for the rest of the page's scroll session. Pausing
+   alone isn't enough: `will-change: transform` on `.hero-sweep-arm` keeps
+   its GPU compositor layer (a resident texture) allocated regardless of
+   whether the animation is running, so this also drops it back to `auto`
+   here — that's what actually releases the memory, not just the pause. */
 .hero-anims-paused .hero-css-starfield-layer-2,
 .hero-anims-paused .hero-css-starfield-layer-3,
 .hero-anims-paused .hero-sweep-arm,
 .hero-anims-paused .hero-sweep-arm-mobile,
 .hero-anims-paused [class*="hero-glow"] {
   animation-play-state: paused;
+}
+.hero-anims-paused .hero-sweep-arm,
+.hero-anims-paused .hero-sweep-arm-mobile {
+  will-change: auto;
+}
+
+/* Same idea for Prove Your Skill's 5 floating cards — ProveYourSkill() adds
+   this class (via its own, separate observer, unrelated to the section's
+   scroll-pinned useScroll target) once scrolled far enough away. */
+.prove-skill-anims-paused .prove-skill-float {
+  animation-play-state: paused;
+  will-change: auto;
 }
 
