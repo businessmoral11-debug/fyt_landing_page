@@ -1,4 +1,7 @@
+import { useEffect, useRef, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
+
+const AMBIENT_BLOB_ACTIVE_MARGIN_PX = 600;
 
 export function AmbientBlob({
   className, color, size = 480, duration = 20,
@@ -6,8 +9,25 @@ export function AmbientBlob({
   className?: string; color: string; size?: number; duration?: number;
 }) {
   const reduceMotion = useReducedMotion();
+  const ref = useRef<HTMLDivElement>(null);
+  const [animsActive, setAnimsActive] = useState(true);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => setAnimsActive(!!entries[0]?.isIntersecting),
+      { rootMargin: `${AMBIENT_BLOB_ACTIVE_MARGIN_PX}px 0px ${AMBIENT_BLOB_ACTIVE_MARGIN_PX}px 0px` },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const active = !reduceMotion && animsActive;
+
   return (
     <motion.div
+      ref={ref}
       aria-hidden="true"
       className={`absolute rounded-full pointer-events-none ${className ?? ""}`}
       style={{
@@ -15,10 +35,10 @@ export function AmbientBlob({
         height: size,
         background: `radial-gradient(circle, ${color} 0%, transparent 70%)`,
         filter: "blur(70px)",
-        willChange: reduceMotion ? undefined : "transform",
+        willChange: active ? "transform" : undefined,
       }}
-      animate={reduceMotion ? undefined : { x: [0, 34, -24, 0], y: [0, -26, 22, 0] }}
-      transition={reduceMotion ? undefined : { duration, repeat: Infinity, ease: "easeInOut" }}
+      animate={active ? { x: [0, 34, -24, 0], y: [0, -26, 22, 0] } : undefined}
+      transition={active ? { duration, repeat: Infinity, ease: "easeInOut" } : undefined}
     />
   );
 }

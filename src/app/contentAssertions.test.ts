@@ -285,7 +285,7 @@ describe("Prove Your Skill section: scroll-pinned card reveal", () => {
   it("gives mobile its own pinned scroll-reveal wrapper", () => {
     const app = read("./BelowFold.tsx");
     expect(app).toContain('style={{ height: `${PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH}vh` }}');
-    expect(app).toContain('className="sticky top-0 h-[100dvh] flex flex-col items-center justify-start pt-[96px] gap-[32px]"');
+    expect(app).toContain('className="sticky top-0 h-[100svh] flex flex-col items-center justify-start pt-[96px] gap-[32px]"');
     expect(app.match(/PROVE_SKILL_CARDS\.map/g)?.length).toBe(1);
   });
 

@@ -5,7 +5,12 @@
 /.superpowers/
 .DS_Store
 .idea/
+.vscode/
 *.log
+coverage/
+*.tsbuildinfo
+
+# Vercel CLI project link (points at a personal deployment, not the client's).
 .vercel
 
 # Deployment-specific configuration (backend URL, etc.) — every developer/
@@ -13,6 +18,3 @@
 .env
 .env.*
 !.env.example
-
-.vercel
-.env*

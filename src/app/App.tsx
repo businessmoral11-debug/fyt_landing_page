@@ -524,15 +524,31 @@ function PromoItemChip({ item }: { item: PromoItem }) {
   );
 }
 
+const PROMO_BANNER_ACTIVE_MARGIN_PX = 600;
+
 function PromoBanner() {
   const reduceMotion = useReducedMotion();
   const trackItems = reduceMotion ? PROMO_ITEMS : [...PROMO_ITEMS, ...PROMO_ITEMS];
   const [now, setNow] = useState(() => Date.now());
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(true);
 
   useEffect(() => {
+    const el = bannerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => setNearViewport(!!entries[0]?.isIntersecting),
+      { rootMargin: `${PROMO_BANNER_ACTIVE_MARGIN_PX}px 0px ${PROMO_BANNER_ACTIVE_MARGIN_PX}px 0px` },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!nearViewport) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, []);
+  }, [nearViewport]);
 
   const countdown = formatCountdown(PROMO_DEADLINE, now);
   const countdownExpired = countdown.days === 0 && countdown.hh === "00" && countdown.mm === "00" && countdown.ss === "00";
@@ -543,6 +559,7 @@ function PromoBanner() {
 
   return (
     <div
+      ref={bannerRef}
       role="link"
       tabIndex={0}
       onClick={scrollToPricing}
@@ -551,7 +568,7 @@ function PromoBanner() {
       className={`bg-[#0b0c11] relative shrink-0 w-full cursor-pointer ${reduceMotion ? "min-h-[36px] h-auto py-[6px]" : "h-[36px] overflow-hidden"}`}
       style={{ paddingRight: "100px", contain: "layout" }}
     >
-      <div className={`flex items-center h-full ${reduceMotion ? "flex-wrap" : "animate-[fyt-marquee_30s_linear_infinite] w-max"}`}>
+      <div className={`flex items-center h-full ${reduceMotion ? "flex-wrap" : "animate-[fyt-marquee_30s_linear_infinite] w-max"}`} style={nearViewport ? undefined : { animationPlayState: "paused" }}>
         {trackItems.map((item, i) => (
           <Fragment key={i}>
             <PromoItemChip item={item} />
@@ -981,9 +998,28 @@ function HeroTrustindexGate() {
   return isDesktop ? <HeroTrustindexWidget /> : <HeroTrustindexMobileWidget />;
 }
 
+const HERO_ANIMATIONS_ACTIVE_MARGIN_PX = 600;
+
 function Hero() {
+  const heroRef = useRef<HTMLDivElement>(null);
+  const [animationsActive, setAnimationsActive] = useState(true);
+
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => setAnimationsActive(!!entries[0]?.isIntersecting),
+      { rootMargin: `${HERO_ANIMATIONS_ACTIVE_MARGIN_PX}px 0px ${HERO_ANIMATIONS_ACTIVE_MARGIN_PX}px 0px` },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="bg-black relative flex flex-col items-center overflow-hidden shrink-0 w-full min-h-[620px] lg:h-[1080px] py-[64px] lg:py-0">
+    <div
+      ref={heroRef}
+      className={`bg-black relative flex flex-col items-center overflow-hidden shrink-0 w-full min-h-[620px] lg:h-[1080px] py-[64px] lg:py-0 ${animationsActive ? "" : "hero-anims-paused"}`}
+    >
       <HeroBackground />
       {/* Content — centered; on desktop pinned into the upper band per spec (top 130, h 496) */}
       <div className="relative z-10 flex flex-col items-center justify-center text-center px-[20px] lg:px-[88px] w-full lg:absolute lg:top-[90px] lg:h-[496px]">

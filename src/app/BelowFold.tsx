@@ -449,11 +449,8 @@ function ProveSkillCard({ text, floatDelay = 0 }: { text: string; floatDelay?: n
         className="group"
       >
         <div
-          className="relative overflow-hidden flex gap-[14px] lg:gap-[12px] items-center rounded-[14px] px-[18px] lg:px-[16px] py-[16px] lg:py-[14px] w-[260px] lg:w-[240px] transition-[border-color,box-shadow] duration-300 group-hover:border-[rgba(59,130,246,0.4)]"
+          className="relative overflow-hidden flex gap-[14px] lg:gap-[12px] items-center rounded-[14px] px-[18px] lg:px-[16px] py-[16px] lg:py-[14px] w-[260px] lg:w-[240px] bg-[rgba(255,255,255,0.9)] lg:bg-[rgba(255,255,255,0.72)] lg:backdrop-blur-[14px] transition-[border-color,box-shadow] duration-300 group-hover:border-[rgba(59,130,246,0.4)]"
           style={{
-            background: "rgba(255,255,255,0.72)",
-            backdropFilter: "blur(14px)",
-            WebkitBackdropFilter: "blur(14px)",
             border: "1px solid rgba(59,130,246,0.14)",
             boxShadow: "0 14px 34px -16px rgba(15,23,42,0.22), inset 0 1px 0 rgba(255,255,255,0.7)",
           }}
@@ -588,7 +585,7 @@ function ProveYourSkill() {
         </div>
 
         <div ref={mobileScrollRef} className="lg:hidden relative w-full" style={{ height: `${PROVE_SKILL_MOBILE_SCROLL_HEIGHT_VH}vh` }}>
-          <div className="sticky top-0 h-[100dvh] flex flex-col items-center justify-start pt-[96px] gap-[32px]">
+          <div className="sticky top-0 h-[100svh] flex flex-col items-center justify-start pt-[96px] gap-[32px]">
             <div className="text-center px-[8px]">
               <ProveSkillHeading size="text-[28px]" animate={false} />
             </div>
@@ -1159,6 +1156,17 @@ const GLOBE_DESKTOP_INIT_MARGIN_PX = 3200;
 const GLOBE_REVEAL_MARGIN_PX = 150;
 const GLOBE_REVEAL_TRANSITION = "opacity 400ms ease-out";
 const GLOBE_ACTIVE_MARGIN_PX = 400;
+/**
+ * Mobile only: once scrolled this far past the globe, fully unmount its
+ * WebGL Canvas instead of just pausing its render loop. `active`/
+ * `frameloop: "demand"` stops per-frame work, but the GPU-resident texture,
+ * geometry, and shader memory a live WebGL context holds stays allocated for
+ * as long as the Canvas stays mounted — on memory-constrained phones that
+ * accumulates for the rest of the session once triggered. Unmounting
+ * releases it (react-three-fiber disposes the context on unmount); the
+ * lazy-loaded chunk is already cached, so scrolling back re-mounts fast.
+ */
+const GLOBE_MOBILE_UNMOUNT_MARGIN_PX = 2500;
 
 function isDesktopGlobeViewport(): boolean {
   return window.matchMedia("(min-width: 1024px)").matches && window.matchMedia("(pointer: fine)").matches;
@@ -1181,6 +1189,7 @@ function TradingGlobeSlot() {
   const [nearViewport, setNearViewport] = useState(false);
   const [globeReady, setGlobeReady] = useState(false);
   const [isActive, setIsActive] = useState(true);
+  const [stayMounted, setStayMounted] = useState(true);
   const sentinelRef = useRef<HTMLDivElement>(null);
   const revealed = nearViewport && globeReady;
 
@@ -1240,6 +1249,17 @@ function TradingGlobeSlot() {
     return () => observer.disconnect();
   }, [shouldInit]);
 
+  useEffect(() => {
+    if (isDesktop || !shouldInit) return;
+    const el = sentinelRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => setStayMounted(!!entries[0]?.isIntersecting), {
+      rootMargin: `${GLOBE_MOBILE_UNMOUNT_MARGIN_PX}px 0px ${GLOBE_MOBILE_UNMOUNT_MARGIN_PX}px 0px`,
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [isDesktop, shouldInit]);
+
   if (isDesktop) {
     return (
       <div ref={sentinelRef} className="w-full relative">
@@ -1265,7 +1285,7 @@ function TradingGlobeSlot() {
 
   return (
     <div ref={sentinelRef} className="w-full">
-      {shouldInit ? (
+      {shouldInit && stayMounted ? (
         <Suspense fallback={<TradingGlobePlaceholder />}>
           <div
             style={{
@@ -1576,6 +1596,8 @@ function PlanCompareShortcut() {
   );
 }
 
+const PRICING_ANIMATIONS_ACTIVE_MARGIN_PX = 600;
+
 function Pricing() {
   const [step, setStep] = useState<StepId>("1-Step");
   const [plan, setPlan] = useState<PlanId>("classic");
@@ -1587,6 +1609,19 @@ function Pricing() {
   const checkoutMagnet = useMagnetic<HTMLDivElement>(0.2);
   const reduceMotion = useReducedMotion();
   const spotlight = useCursorGlow<HTMLDivElement>();
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [animsActive, setAnimsActive] = useState(true);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => setAnimsActive(!!entries[0]?.isIntersecting),
+      { rootMargin: `${PRICING_ANIMATIONS_ACTIVE_MARGIN_PX}px 0px ${PRICING_ANIMATIONS_ACTIVE_MARGIN_PX}px 0px` },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const stepTouched = useTouchedOnChange(step);
   const planTouched = useTouchedOnChange(plan);
@@ -1671,7 +1706,7 @@ function Pricing() {
         ];
 
   return (
-    <div id="challenge" className="relative shrink-0 w-full scroll-mt-[96px] lg:scroll-mt-[100px]">
+    <div ref={sectionRef} id="challenge" className="relative shrink-0 w-full scroll-mt-[96px] lg:scroll-mt-[100px]">
       <div
         ref={spotlight.ref}
         onMouseMove={spotlight.onMouseMove}
@@ -1714,7 +1749,7 @@ function Pricing() {
               <motion.div
                 className="flex items-center justify-center rounded-full size-[44px] shrink-0"
                 style={{ border: "1.5px solid #3b82f6", background: "rgba(59,130,246,0.08)" }}
-                animate={reduceMotion ? undefined : { boxShadow: ["0 0 12px rgba(59,130,246,0.5)", "0 0 20px rgba(59,130,246,0.85)", "0 0 12px rgba(59,130,246,0.5)"] }}
+                animate={reduceMotion || !animsActive ? undefined : { boxShadow: ["0 0 12px rgba(59,130,246,0.5)", "0 0 20px rgba(59,130,246,0.85)", "0 0 12px rgba(59,130,246,0.5)"] }}
                 transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
               >
                 <svg width="14" height="16" viewBox="0 0 14 16" fill="none" className="ml-[2px]"><path d="M1 1L13 8L1 15V1Z" fill="white" /></svg>
@@ -1905,6 +1940,8 @@ function Pricing() {
                         <img
                           src={PLATFORM_LOGOS[opt.id]}
                           alt=""
+                          loading="lazy"
+                          decoding="async"
                           className="relative z-[1] w-auto object-contain"
                           style={{ height: PLATFORM_LOGO_HEIGHT[opt.id] }}
                         />
@@ -2047,7 +2084,7 @@ function Pricing() {
                   style={{ background: "radial-gradient(140px circle at 50% 0%, rgba(255,255,255,0.4), transparent 70%)" }}
                 />
                 <a href={checkoutUrl(entry.productId)} className="rounded-[16px] shrink-0 w-full block no-underline relative overflow-hidden h-[58px]" style={{ background: "linear-gradient(180deg, #5A9BFF 0%, #2563EB 100%)", boxShadow: "0 8px 28px -6px rgba(37,99,235,0.35), inset 0 1px 0 rgba(255,255,255,0.35)" }}>
-                  {!reduceMotion && (
+                  {!reduceMotion && animsActive && (
                     <motion.div
                       aria-hidden="true"
                       className="absolute inset-0 pointer-events-none"
@@ -2285,8 +2322,23 @@ function PaymentMoreButton() {
 
 function PaymentOptions() {
   const reduceMotion = useReducedMotion();
+  const sectionRef = useRef<HTMLDivElement>(null);
+  const [animsActive, setAnimsActive] = useState(true);
+
+  useEffect(() => {
+    const el = sectionRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => setAnimsActive(!!entries[0]?.isIntersecting),
+      { rootMargin: "600px 0px 600px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <motion.div
+      ref={sectionRef}
       initial={{ opacity: 0, y: 18 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: "-60px" }}
@@ -2298,19 +2350,19 @@ function PaymentOptions() {
       }}
     >
       <div aria-hidden="true" className="absolute border border-[rgba(59,130,246,0.15)] border-solid inset-0 pointer-events-none rounded-[20px]" />
-      {!reduceMotion && <LightSweep />}
+      {!reduceMotion && animsActive && <LightSweep />}
       <p className="relative z-[1] font-['DM_Sans',sans-serif] font-medium text-[#eef0f6] text-[18px] lg:text-[20px] shrink-0">Payment Options:</p>
       <div className="relative z-[1] flex flex-wrap justify-center lg:justify-start items-center gap-[12px]">
-        <PaymentBadgeShell index={0} reduceMotion={reduceMotion}>
+        <PaymentBadgeShell index={0} reduceMotion={reduceMotion || !animsActive}>
           <VisaBadge />
         </PaymentBadgeShell>
-        <PaymentBadgeShell index={1} reduceMotion={reduceMotion}>
+        <PaymentBadgeShell index={1} reduceMotion={reduceMotion || !animsActive}>
           <MastercardBadge />
         </PaymentBadgeShell>
-        <PaymentBadgeShell index={2} reduceMotion={reduceMotion}>
+        <PaymentBadgeShell index={2} reduceMotion={reduceMotion || !animsActive}>
           <CryptoCluster />
         </PaymentBadgeShell>
-        <PaymentBadgeShell index={3} reduceMotion={reduceMotion}>
+        <PaymentBadgeShell index={3} reduceMotion={reduceMotion || !animsActive}>
           <PaymentMoreButton />
         </PaymentBadgeShell>
       </div>
@@ -3189,7 +3241,7 @@ function DifferenceComparisonGrid() {
         </div>
         <div className="flex items-center gap-[10px] mb-[16px]">
           <div className="flex items-center justify-center rounded-[8px] shrink-0" style={{ width: 32, height: 28, background: "#0b0c11" }}>
-            <img src={imgImg10782} alt="" className="h-[20px] w-auto" />
+            <img src={imgImg10782} alt="" loading="lazy" decoding="async" className="h-[20px] w-auto" />
           </div>
           <p className="font-['DM_Sans',sans-serif] font-medium text-[#0b0c11] text-[20px]">Funding Your Trades</p>
         </div>
@@ -3930,7 +3982,6 @@ function ProductShowcase() {
               </div>
               <motion.button
                 type="button"
-                onClick={() => setChatOpen(true)}
                 whileHover={prefersReducedMotion ? undefined : { scale: 1.04, y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 22 }}

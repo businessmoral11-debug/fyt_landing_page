@@ -326,3 +326,17 @@ body::-webkit-scrollbar {
   }
 }
 
+/* Once the Hero section scrolls far enough out of view, App.tsx's Hero()
+   adds this class to stop its always-mounted ambient animations (starfield
+   twinkle, orbit sweep beam, orbit label glow) from continuing to run
+   in the background for the rest of the page's scroll session — otherwise
+   these will-change-promoted layers keep costing GPU/compositor work long
+   after they're no longer visible. */
+.hero-anims-paused .hero-css-starfield-layer-2,
+.hero-anims-paused .hero-css-starfield-layer-3,
+.hero-anims-paused .hero-sweep-arm,
+.hero-anims-paused .hero-sweep-arm-mobile,
+.hero-anims-paused [class*="hero-glow"] {
+  animation-play-state: paused;
+}
+
