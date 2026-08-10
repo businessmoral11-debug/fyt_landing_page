@@ -31,11 +31,20 @@ import {
 } from "./proofInNumbersMotion";
 
 describe("proofInNumbersMotion timing bounds", () => {
-  it("left/right blocks slide in from opposite sides by the same distance, starting together", () => {
-    expect((proofLeftReveal.hidden as { x?: number }).x).toBe(-PROOF_SIDE_SLIDE_X);
+  it("right block (stat cards) slides in from PROOF_SIDE_SLIDE_X", () => {
     expect((proofRightReveal.hidden as { x?: number }).x).toBe(PROOF_SIDE_SLIDE_X);
-    expect((proofLeftReveal.show as { x?: number }).x).toBe(0);
     expect((proofRightReveal.show as { x?: number }).x).toBe(0);
+  });
+
+  it("left block (heading/paragraph) has no opacity/x of its own -- its heading and paragraph render statically -- but still orchestrates the badge/button stagger", () => {
+    expect(proofLeftReveal.hidden).toEqual({});
+    expect((proofLeftReveal.hidden as { x?: number; opacity?: number }).x).toBeUndefined();
+    expect((proofLeftReveal.hidden as { x?: number; opacity?: number }).opacity).toBeUndefined();
+    const show = proofLeftReveal.show as { x?: number; opacity?: number; transition?: { staggerChildren?: number; delayChildren?: number } };
+    expect(show.x).toBeUndefined();
+    expect(show.opacity).toBeUndefined();
+    expect(show.transition?.staggerChildren).toBe(0.12);
+    expect(show.transition?.delayChildren).toBe(0.1);
   });
 
   it("card stagger is 80ms, applied via the right block's own staggerChildren", () => {

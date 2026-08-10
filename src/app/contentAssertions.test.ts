@@ -59,12 +59,12 @@ describe("Comparison Table difference-is-clear components", () => {
     expect(app).toContain("function DifferenceScrollLayer(");
   });
 
-  it("restricts each pinned crossfade to its own breakpoint (desktop hidden-then-lg:block, mobile lg:hidden)", () => {
+  it("restricts each breakpoint's difference-is-clear layout to its own scope (desktop hidden-then-lg:block, mobile lg:hidden)", () => {
     const app = read("./BelowFold.tsx");
     const desktopPinnedBody = sliceToNextFunction(app, "function DifferencePinnedCrossfade(");
     const mobilePinnedBody = sliceToNextFunction(app, "function DifferenceMobilePinnedCrossfade(");
     expect(desktopPinnedBody).toContain("hidden lg:block");
-    expect(mobilePinnedBody).toContain("lg:hidden relative w-full");
+    expect(mobilePinnedBody).toContain("lg:hidden flex flex-col gap-[20px] items-center w-full");
   });
 
   it("extracts the trust bar into its own component and animates it in with both the desktop and mobile pinned content blocks, while still rendering it statically for reduced-motion users", () => {
@@ -83,15 +83,17 @@ describe("Comparison Table difference-is-clear components", () => {
     expect(comparisonTableBody).toMatch(/\{reduceMotion && \(/);
   });
 
-  it("defines DifferenceMobilePinnedCrossfade as the mobile counterpart of the desktop pinned crossfade", () => {
+  it("renders DifferenceMobilePinnedCrossfade as plain in-flow content, not a scroll-jacked pin (avoids injecting extra scroll-height on mobile)", () => {
     const app = read("./BelowFold.tsx");
     expect(app).toContain("function DifferenceMobilePinnedCrossfade(");
     const mobilePinnedBody = sliceToNextFunction(app, "function DifferenceMobilePinnedCrossfade(");
-    expect(mobilePinnedBody).toContain('useScroll({ target: scrollRef, offset: ["start start", "end end"] })');
-    expect(mobilePinnedBody).toContain("DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH");
-    expect(mobilePinnedBody).toContain("DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL");
-    expect(mobilePinnedBody).toContain("DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL");
-    expect(mobilePinnedBody).toContain("h-[100dvh]");
+    expect(mobilePinnedBody).not.toContain("useScroll(");
+    expect(mobilePinnedBody).not.toContain("DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH");
+    expect(mobilePinnedBody).not.toContain("DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL");
+    expect(mobilePinnedBody).not.toContain("DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL");
+    expect(mobilePinnedBody).not.toContain("100dvh");
+    expect(mobilePinnedBody).not.toContain("sticky");
+    expect(mobilePinnedBody).toContain("<DifferenceHeadingText");
   });
 
   it("DifferenceMobilePinnedCrossfade's content-enter layer uses the mobile 3-column table, not the desktop 2-card grid", () => {
@@ -107,15 +109,12 @@ describe("Comparison Table difference-is-clear components", () => {
     expect(comparisonTableBody).toContain("{!reduceMotion && <DifferenceMobilePinnedCrossfade reduceMotion={reduceMotion} />}");
   });
 
-  it("centers the heading (rather than top-aligning it) in both the desktop and mobile pinned crossfades", () => {
+  it("centers the heading (rather than top-aligning it) in the desktop pinned crossfade", () => {
     const app = read("./BelowFold.tsx");
     const desktopPinnedBody = sliceToNextFunction(app, "function DifferencePinnedCrossfade(");
-    const mobilePinnedBody = sliceToNextFunction(app, "function DifferenceMobilePinnedCrossfade(");
     expect(desktopPinnedBody).toContain('className="absolute inset-0 flex items-center justify-center"');
-    expect(mobilePinnedBody).toContain('className="absolute inset-0 flex items-center justify-center"');
     expect(desktopPinnedBody).not.toContain("items-start");
     expect(desktopPinnedBody).not.toContain("lg:pt-[16px]");
-    expect(mobilePinnedBody).not.toContain("items-start");
   });
 });
 

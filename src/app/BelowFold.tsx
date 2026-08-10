@@ -69,8 +69,6 @@ import {
   proofRevealItem,
   proofLeftReveal,
   proofRightReveal,
-  proofHeadlineContainer,
-  proofHeadlineLine,
   proofButtonReveal,
   proofCardReveal,
   PROOF_FLOAT_Y,
@@ -201,9 +199,6 @@ import {
   DIFFERENCE_PIN_SCROLL_HEIGHT_VH,
   DIFFERENCE_HEADING_EXIT_REVEAL,
   DIFFERENCE_CONTENT_ENTER_REVEAL,
-  DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH,
-  DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL,
-  DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL,
   type DifferenceCrossfadeReveal,
 } from "@/app/motion/differenceReveal";
 
@@ -497,30 +492,14 @@ function ProveSkillRevealCard({
   const x = useTransform(progress, [reveal.fadeStart, reveal.fadeEnd], [reveal.fromX, 0]);
   const y = useTransform(progress, [reveal.fadeStart, reveal.fadeEnd], [reveal.fromY, 0]);
   return (
-    <motion.div className={className} style={reduceMotion ? undefined : { opacity, x, y }}>
+    <motion.div
+      className={`prove-skill-reveal-card ${className}`}
+      style={reduceMotion ? undefined : { opacity, x, y }}
+    >
       {children}
     </motion.div>
   );
 }
-
-/**
- * iPhone Safari scroll-friction diagnostic: the plain, non-Framer equivalent
- * of ProveSkillRevealCard, rendered permanently at the card's fully-revealed
- * end state (opacity 1, no offset) -- same className, same children, same
- * layout box, just no `useTransform`/`motion.div` writing a new inline style
- * on every scroll-progress tick. Swapped in for the mobile cards only, via
- * PROVE_SKILL_MOBILE_SCROLL_REVEAL_ENABLED below, to isolate whether that
- * per-frame style write is what's causing the reported scroll resistance.
- */
-function ProveSkillStaticCard({ className, children }: { className: string; children: ReactNode }) {
-  return <div className={className}>{children}</div>;
-}
-
-/**
- * Set to false to run the diagnostic above; true is the normal, shipped
- * behavior. Only affects the mobile cards -- desktop is untouched either way.
- */
-const PROVE_SKILL_MOBILE_SCROLL_REVEAL_ENABLED = false;
 
 
 function BlurRevealWords({ text }: { text: string }) {
@@ -640,23 +619,17 @@ function ProveYourSkill() {
               <ProveSkillHeading size="text-[28px]" animate={false} />
             </div>
             <div className="flex flex-col gap-[12px] w-full items-center">
-              {PROVE_SKILL_CARDS.map((c, i) =>
-                PROVE_SKILL_MOBILE_SCROLL_REVEAL_ENABLED ? (
-                  <ProveSkillRevealCard
-                    key={c.id}
-                    className="shrink-0"
-                    progress={mobileRevealProgress}
-                    reveal={PROVE_SKILL_MOBILE_CARD_REVEALS[i]}
-                    reduceMotion={reduceMotion}
-                  >
-                    <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
-                  </ProveSkillRevealCard>
-                ) : (
-                  <ProveSkillStaticCard key={c.id} className="shrink-0">
-                    <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
-                  </ProveSkillStaticCard>
-                ),
-              )}
+              {PROVE_SKILL_CARDS.map((c, i) => (
+                <ProveSkillRevealCard
+                  key={c.id}
+                  className="shrink-0"
+                  progress={mobileRevealProgress}
+                  reveal={PROVE_SKILL_MOBILE_CARD_REVEALS[i]}
+                  reduceMotion={reduceMotion}
+                >
+                  <ProveSkillCard text={c.text} floatDelay={i * 0.25} />
+                </ProveSkillRevealCard>
+              ))}
             </div>
           </div>
         </div>
@@ -927,24 +900,13 @@ function ProofInNumbers() {
                 >
                   Proof in Numbers
                 </motion.span>
-                {/* Heading reveals line-by-line (2 lines), not word-by-word. */}
-                <motion.h2
-                  variants={proofHeadlineContainer}
-                  className="font-['DM_Sans',sans-serif] font-medium text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em]"
-                >
-                  <motion.span variants={proofHeadlineLine} className="block text-[#eef0f6]">
-                    Thousands traded.
-                  </motion.span>
-                  <motion.span variants={proofHeadlineLine} className="block text-[#3b82f6]">
-                    Millions rewarded.
-                  </motion.span>
-                </motion.h2>
-                <motion.p
-                  variants={proofRevealItem}
-                  className="font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[15px] lg:text-[16px] leading-[1.6] max-w-[420px]"
-                >
+                <h2 className="font-['DM_Sans',sans-serif] font-medium text-[28px] lg:text-[44px] leading-[1.1] tracking-[-0.02em]">
+                  <span className="block text-[#eef0f6]">Thousands traded.</span>
+                  <span className="block text-[#3b82f6]">Millions rewarded.</span>
+                </h2>
+                <p className="font-['Inter:Regular',sans-serif] font-normal text-[#9da2b4] text-[15px] lg:text-[16px] leading-[1.6] max-w-[420px]">
                   A global community built on transparent conditions, real progress, and rewards delivered to traders.
-                </motion.p>
+                </p>
                 <motion.div variants={proofButtonReveal} className="mt-[8px]">
                   <HeroCta
                     href="#live-payouts"
@@ -3453,31 +3415,12 @@ function DifferencePinnedCrossfade({ reduceMotion }: { reduceMotion: boolean | n
 }
 
 function DifferenceMobilePinnedCrossfade({ reduceMotion }: { reduceMotion: boolean | null }) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({ target: scrollRef, offset: ["start start", "end end"] });
-
   return (
-    <div ref={scrollRef} className="lg:hidden relative w-full" style={{ height: `${DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH}vh` }}>
-      <div className="sticky top-0 min-h-[100dvh] flex flex-col items-center justify-start pt-[96px]">
-        <div className="relative w-full overflow-x-hidden">
-          <DifferenceScrollLayer
-            className="absolute inset-0 flex items-center justify-center"
-            progress={scrollYProgress}
-            reveal={DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL}
-          >
-            <DifferenceHeadingText reduceMotion={reduceMotion} />
-          </DifferenceScrollLayer>
-          <DifferenceScrollLayer
-            className="flex flex-col gap-[20px] items-center w-full"
-            progress={scrollYProgress}
-            reveal={DIFFERENCE_MOBILE_CONTENT_ENTER_REVEAL}
-          >
-            <DifferenceAdvantageBlock />
-            <DifferenceComparisonTableMobile />
-            <DifferenceTrustBar />
-          </DifferenceScrollLayer>
-        </div>
-      </div>
+    <div className="lg:hidden flex flex-col gap-[20px] items-center w-full">
+      <DifferenceHeadingText reduceMotion={reduceMotion} />
+      <DifferenceAdvantageBlock />
+      <DifferenceComparisonTableMobile />
+      <DifferenceTrustBar />
     </div>
   );
 }

@@ -5,11 +5,17 @@ const PROOF_SPRING: Transition = { type: "spring", stiffness: 90, damping: 18, m
 
 export const PROOF_SIDE_SLIDE_X = 80; // px-equivalent (Framer treats bare numbers on x as px)
 
+/**
+ * Deliberately has no opacity/x of its own -- ProofInNumbers' heading and
+ * paragraph render statically (see BelowFold.tsx) and would otherwise still
+ * appear to slide/fade in just from being nested inside this animated
+ * container. Kept purely to fire the staggerChildren/delayChildren timing
+ * that the badge (proofRevealItem) and button (proofButtonReveal) still use
+ * for their own entrance -- same pattern as proofHeadlineContainer below.
+ */
 export const proofLeftReveal: Variants = {
-  hidden: { opacity: 0, x: -PROOF_SIDE_SLIDE_X },
+  hidden: {},
   show: {
-    opacity: 1,
-    x: 0,
     transition: { ...PROOF_SPRING, staggerChildren: 0.12, delayChildren: 0.1 },
   },
 };
