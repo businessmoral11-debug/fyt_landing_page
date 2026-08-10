@@ -266,8 +266,10 @@ function Wordmark() {
 
 function Brand() {
   return (
-    <motion.div
-      className="group content-stretch flex items-center relative shrink-0 cursor-pointer"
+    <motion.a
+      href="https://fundingyourtrades.com/"
+      aria-label="Funding Your Trades home"
+      className="group content-stretch flex items-center relative shrink-0 no-underline"
       whileHover={{ scale: 1.03 }}
       transition={{ duration: 0.25, ease: "easeOut" }}
     >
@@ -283,7 +285,7 @@ function Brand() {
         </div>
       </div>
       <Wordmark />
-    </motion.div>
+    </motion.a>
   );
 }
 
