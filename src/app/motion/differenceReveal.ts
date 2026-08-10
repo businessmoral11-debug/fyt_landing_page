@@ -59,13 +59,15 @@ export const DIFFERENCE_CONTENT_ENTER_REVEAL: DifferenceCrossfadeReveal = {
  * The desktop constants above finish their crossfade at 45% progress, then
  * hold the pin doing nothing until 100% -- on mobile, where the wrapper is
  * much closer in height to one viewport, that dead hold reads as a large
- * blank gap before the next section arrives. These push fadeEnd out to use
- * most of the pin duration instead, with a smaller matching total height,
- * so the hold shrinks to a brief, barely-felt pause rather than a dead
- * scroll. Same opacity/x values as the desktop reveals -- only the timing
- * differs.
+ * blank gap before the next section arrives. The reveals below (unchanged)
+ * already push fadeEnd out to use most of the pin duration instead of
+ * holding early. This height is the other half of that fix: it sets how
+ * much (wrapperHeight - viewportHeight) scroll distance the whole pin gets,
+ * so it's tuned down from its earlier, taller value to shrink the dead
+ * hold at the tail (now a brief, barely-felt pause) without touching the
+ * crossfade's own timing/easing/opacity/x values.
  */
-export const DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH = 165;
+export const DIFFERENCE_MOBILE_PIN_SCROLL_HEIGHT_VH = 125;
 
 export const DIFFERENCE_MOBILE_HEADING_EXIT_REVEAL: DifferenceCrossfadeReveal = {
   fadeStart: 0,
