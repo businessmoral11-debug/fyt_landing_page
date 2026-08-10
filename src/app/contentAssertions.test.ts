@@ -387,7 +387,7 @@ describe("Live Rewards embeds", () => {
     expect(app).toContain('const loadFeaturedCertificates = () => import("@/app/featuredCertificates");');
     expect(app).toContain("<RecentVerifiedRewards />");
     expect(app).toContain("<FeaturedCertificates />");
-    expect(app).toContain("https://provesrc.com/verified/?src=fundingyourtrades");
+    expect(app).toContain("https://rewards.fundingyourtrades.com/");
   });
 });
 
@@ -788,6 +788,7 @@ describe("ProductShowcase Trusted Support Team card (spec v4 blue container)", (
     expect(gridBody).toContain('bg-white rounded-full px-[20px] py-[12px]');
     expect(gridBody).toContain('style={{ color: SUPPORT_CARD_ACCENT_BLUE }}>Chat with us');
     expect(gridBody).toContain('stroke={SUPPORT_CARD_ACCENT_BLUE} strokeWidth="1.6"');
+    expect(gridBody).toContain('id="intercom-chat-button"');
   });
 
   it("shrinks the Trusted Platform card's internal spacing (connector gap, logo padding, trailer margin) so it no longer towers over the recolored Support card", () => {

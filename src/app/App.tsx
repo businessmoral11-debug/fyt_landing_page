@@ -889,7 +889,7 @@ function HeroCta({
 }
 
 const HERO_TRUSTINDEX_LOADER_SRC = "https://cdn.trustindex.io/loader.js?e7ec0f57824081211c46a9bf46f";
-const HERO_TRUSTINDEX_REVIEW_COUNT = "2,191";
+const HERO_TRUSTINDEX_REVIEW_LABEL = "2.2k+ Reviews";
 let heroTrustindexScriptInjected = false;
 
 const HeroTrustindexWidget = memo(function HeroTrustindexWidget() {
@@ -916,7 +916,11 @@ const HeroTrustindexWidget = memo(function HeroTrustindexWidget() {
       const strongs = container.querySelectorAll(".ti-widget strong");
       for (const el of strongs) {
         if (/reviews/i.test(el.textContent || "")) {
-          el.textContent = `${HERO_TRUSTINDEX_REVIEW_COUNT} reviews`;
+          const node = el as HTMLElement;
+          node.textContent = HERO_TRUSTINDEX_REVIEW_LABEL;
+          node.style.fontSize = "14px";
+          node.style.fontWeight = "600";
+          node.style.letterSpacing = "0.01em";
           window.clearInterval(intervalId);
           return;
         }
@@ -962,14 +966,16 @@ const HeroTrustindexMobileWidget = memo(function HeroTrustindexMobileWidget() {
         window.clearInterval(intervalId);
         const span = document.createElement("span");
         span.className = "fyt-ti-review-count";
-        span.style.fontSize = "11px";
+        span.style.fontSize = "13px";
+        span.style.fontWeight = "600";
         span.style.color = "#000000";
-        span.style.marginLeft = "3px";
+        span.style.marginLeft = "4px";
+        span.style.letterSpacing = "0.01em";
         span.style.whiteSpace = "nowrap";
-        span.textContent = `| ${HERO_TRUSTINDEX_REVIEW_COUNT} reviews`;
+        span.textContent = `| ${HERO_TRUSTINDEX_REVIEW_LABEL}`;
         strong.after(span);
         const style = document.createElement("style");
-        style.textContent = `.ti-widget[data-pid="789d2d278999828b52568075d8b"] .ti-header strong{font-size:12px}.ti-widget[data-pid="789d2d278999828b52568075d8b"] .ti-header{padding:8px 10px}`;
+        style.textContent = `.ti-widget[data-pid="789d2d278999828b52568075d8b"] .ti-header strong{font-size:13px;font-weight:600}.ti-widget[data-pid="789d2d278999828b52568075d8b"] .ti-header{padding:8px 10px}.ti-widget[data-pid="789d2d278999828b52568075d8b"] .fyt-ti-review-count{font-size:13px;font-weight:600}`;
         widget.prepend(style);
         return;
       }

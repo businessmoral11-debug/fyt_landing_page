@@ -1125,7 +1125,7 @@ function LivePayouts() {
         >
           <motion.div whileHover={prefersReducedMotion ? undefined : { y: -4 }} transition={{ type: "spring", stiffness: 380, damping: 24 }}>
             <HeroCta
-              href="https://provesrc.com/verified/?src=fundingyourtrades"
+              href="https://rewards.fundingyourtrades.com/"
               target="_blank"
               rel="noopener noreferrer"
               magneticStrength={0.16}
@@ -4002,10 +4002,19 @@ function ProductShowcase() {
               </div>
               <motion.button
                 type="button"
+                id="intercom-chat-button"
                 whileHover={prefersReducedMotion ? undefined : { scale: 1.04, y: -2 }}
                 whileTap={{ scale: 0.96 }}
                 transition={{ type: "spring", stiffness: 400, damping: 22 }}
                 className="group relative inline-flex items-center gap-[8px] bg-white rounded-full px-[20px] py-[12px] whitespace-nowrap shrink-0 self-center overflow-hidden cursor-pointer border-0"
+                onClick={() => {
+                  const intercom = (window as Window & { Intercom?: (command: string) => void }).Intercom;
+                  if (typeof intercom === "function") {
+                    intercom("show");
+                    return;
+                  }
+                  setChatOpen(true);
+                }}
               >
                 {!prefersReducedMotion && (
                   <motion.span
