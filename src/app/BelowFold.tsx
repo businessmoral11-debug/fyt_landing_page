@@ -4040,7 +4040,7 @@ function ProductShowcase() {
               <div className="flex-1 min-w-0">
                 <p className="font-['DM_Sans',sans-serif] font-medium text-white text-[22px] mb-[8px] text-center xl:text-left">Trusted Support Team</p>
                 <p className="font-['Inter:Regular',sans-serif] font-normal text-[rgba(255,255,255,0.8)] text-[14px] mb-[20px] text-center xl:text-left">Fast, friendly support whenever traders need help.</p>
-                <div className="support-features-track flex flex-nowrap justify-center xl:justify-start overflow-x-auto lg:flex-wrap lg:overflow-visible gap-[20px]">
+                <div className="support-features-track flex flex-wrap justify-center xl:justify-start gap-[20px]">
                   {SUPPORT_FEATURES.map(({ label, icon }) => (
                     <div key={label} className="flex flex-col items-center gap-[6px] text-center shrink-0">
                       <span className="relative flex items-center justify-center rounded-full size-[36px]" style={{ background: "rgba(255,255,255,0.16)" }}>
