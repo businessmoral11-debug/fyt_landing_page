@@ -1843,7 +1843,7 @@ function Pricing() {
             <button
               type="button"
               onClick={(e) => { e.preventDefault(); setShowExplainerVideo(true); }}
-              className="flex items-center gap-[14px] px-[16px] py-[14px] rounded-[12px] shrink-0 no-underline w-full lg:w-[300px] relative overflow-hidden transition-[border-color,transform] duration-300 hover:border-[rgba(59,130,246,0.4)] hover:-translate-y-[2px]"
+              className="flex items-center justify-center lg:justify-start gap-[14px] px-[16px] py-[14px] rounded-[12px] shrink-0 no-underline w-full lg:w-[300px] relative overflow-hidden transition-[border-color,transform] duration-300 hover:border-[rgba(59,130,246,0.4)] hover:-translate-y-[2px]"
               style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}
             >
               <motion.div
@@ -4043,7 +4043,7 @@ function ProductShowcase() {
               <div className="flex-1 min-w-0">
                 <p className="font-['DM_Sans',sans-serif] font-medium text-white text-[22px] mb-[8px] text-center xl:text-left">Trusted Support Team</p>
                 <p className="font-['Inter:Regular',sans-serif] font-normal text-[rgba(255,255,255,0.8)] text-[14px] mb-[20px] text-center xl:text-left">Fast, friendly support whenever traders need help.</p>
-                <div className="support-features-track flex flex-nowrap overflow-x-auto lg:flex-wrap lg:overflow-visible gap-[20px]">
+                <div className="support-features-track flex flex-nowrap justify-center xl:justify-start overflow-x-auto lg:flex-wrap lg:overflow-visible gap-[20px]">
                   {SUPPORT_FEATURES.map(({ label, icon }) => (
                     <div key={label} className="flex flex-col items-center gap-[6px] text-center shrink-0">
                       <span className="relative flex items-center justify-center rounded-full size-[36px]" style={{ background: "rgba(255,255,255,0.16)" }}>
