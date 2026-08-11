@@ -18,7 +18,15 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig({
-  base: '/wp-content/react-home/',
+  // Normally '/wp-content/react-home/' for the WordPress-embedded production
+  // site — every asset URL gets that prefix baked in at build time. A
+  // standalone Vercel deployment at a root domain (e.g. a preview/testing
+  // URL) needs this to be '/' instead, or the browser requests assets at a
+  // path that doesn't exist there and gets a 404 → SPA-rewrite → HTML
+  // instead of JS. Set VITE_BASE_PATH=/ in that Vercel project's
+  // Environment Variables to override it — the WordPress embed is
+  // unaffected since it doesn't set that variable.
+  base: process.env.VITE_BASE_PATH || '/wp-content/react-home/',
   
   plugins: [
     figmaAssetResolver(),
