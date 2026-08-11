@@ -627,6 +627,13 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
           )}
           <Canvas
             flat
+            // R3F's <Canvas> wraps itself in its own internal div with
+            // overflow:hidden baked into its default inline styles — a
+            // separate element from the divs around it, so changing THEIR
+            // overflow (done in the outer wrapper below) doesn't reach it.
+            // This is what was still clipping the country cards even after
+            // that fix. Overriding it here reaches the actual boundary.
+            style={{ overflow: "visible" }}
             camera={{ position: [0, 0, 300], fov: 42 }}
             dpr={[1, lowPower ? 1.15 : typeof window !== "undefined" && window.innerWidth < 768 ? 1.5 : 1.75]}
             gl={{ antialias: !lowPower, alpha: true, powerPreference: "high-performance" }}
