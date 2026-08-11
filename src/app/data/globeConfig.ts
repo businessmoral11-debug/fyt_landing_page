@@ -1,4 +1,3 @@
-
 export interface GlobeHotspot {
   country: string;
   countryCode: string;
@@ -9,16 +8,20 @@ export interface GlobeHotspot {
 }
 
 export const GLOBE_HOTSPOTS: GlobeHotspot[] = [
-  { country: "United States", countryCode: "US", flag: "🇺🇸", lat: 40.7128, lon: -74.006, traderRange: [2800, 3600] },
-  { country: "Canada", countryCode: "CA", flag: "🇨🇦", lat: 43.6532, lon: -79.3832, traderRange: [600, 1100] },
-  { country: "Brazil", countryCode: "BR", flag: "🇧🇷", lat: -23.5505, lon: -46.6333, traderRange: [900, 1500] },
-  { country: "United Kingdom", countryCode: "GB", flag: "🇬🇧", lat: 51.5074, lon: -0.1278, traderRange: [900, 1400] },
-  { country: "Germany", countryCode: "DE", flag: "🇩🇪", lat: 52.52, lon: 13.405, traderRange: [700, 1200] },
-  { country: "India", countryCode: "IN", flag: "🇮🇳", lat: 19.076, lon: 72.8777, traderRange: [1800, 2600] },
-  { country: "UAE", countryCode: "AE", flag: "🇦🇪", lat: 25.2048, lon: 55.2708, traderRange: [400, 800] },
-  { country: "Singapore", countryCode: "SG", flag: "🇸🇬", lat: 1.3521, lon: 103.8198, traderRange: [600, 950] },
-  { country: "Australia", countryCode: "AU", flag: "🇦🇺", lat: -33.8688, lon: 151.2093, traderRange: [500, 900] },
-  { country: "Japan", countryCode: "JP", flag: "🇯🇵", lat: 35.6762, lon: 139.6503, traderRange: [700, 1200] },
+  { country: "India", countryCode: "IN", flag: "🇮🇳", lat: 19.076, lon: 72.8777, traderRange: [4451, 4452] },
+  { country: "Pakistan", countryCode: "PK", flag: "🇵🇰", lat: 24.8607, lon: 67.0011, traderRange: [2409, 2410] },
+  { country: "United States", countryCode: "US", flag: "🇺🇸", lat: 40.7128, lon: -74.006, traderRange: [2107, 2108] },
+  { country: "Canada", countryCode: "CA", flag: "🇨🇦", lat: 43.6532, lon: -79.3832, traderRange: [1045, 1046] },
+  { country: "United Kingdom", countryCode: "GB", flag: "🇬🇧", lat: 51.5074, lon: -0.1278, traderRange: [1652, 1653] },
+  { country: "Netherlands", countryCode: "NL", flag: "🇳🇱", lat: 52.3676, lon: 4.9041, traderRange: [593, 594] },
+  { country: "France", countryCode: "FR", flag: "🇫🇷", lat: 48.8566, lon: 2.3522, traderRange: [708, 709] },
+  { country: "Saudi Arabia", countryCode: "SA", flag: "🇸🇦", lat: 24.7136, lon: 46.6753, traderRange: [1149, 1150] },
+  { country: "Malaysia", countryCode: "MY", flag: "🇲🇾", lat: 3.139, lon: 101.6869, traderRange: [1301, 1302] },
+  { country: "Australia", countryCode: "AU", flag: "🇦🇺", lat: -33.8688, lon: 151.2093, traderRange: [944, 945] },
+  { country: "Czech Republic", countryCode: "CZ", flag: "🇨🇿", lat: 50.0755, lon: 14.4378, traderRange: [406, 407] },
+  { country: "Vietnam", countryCode: "VN", flag: "🇻🇳", lat: 10.8231, lon: 106.6297, traderRange: [897, 898] },
+  { country: "Norway", countryCode: "NO", flag: "🇳🇴", lat: 59.9139, lon: 10.7522, traderRange: [351, 352] },
+  { country: "Portugal", countryCode: "PT", flag: "🇵🇹", lat: 38.7223, lon: -9.1393, traderRange: [442, 443] },
 ];
 
 export interface GlobeRoute {
@@ -28,9 +31,9 @@ export interface GlobeRoute {
 
 export const GLOBE_ROUTES: GlobeRoute[] = [
   { from: "United States", to: "India" },
-  { from: "India", to: "Singapore" },
-  { from: "United Kingdom", to: "UAE" },
-  { from: "Japan", to: "Australia" },
+  { from: "India", to: "Malaysia" },
+  { from: "United Kingdom", to: "Saudi Arabia" },
+  { from: "Australia", to: "Vietnam" },
 ];
 
 export const GLOBE_OCEAN_COLOR = "#08111F";
