@@ -11,9 +11,9 @@ import {
 } from "./globeConfig";
 
 describe("GLOBE_HOTSPOTS", () => {
-  it("includes the 10 named countries from the brief", () => {
+  it("includes the 14 named countries from the brief", () => {
     const names = GLOBE_HOTSPOTS.map((h) => h.country);
-    for (const expected of ["United States", "Canada", "Brazil", "United Kingdom", "Germany", "India", "UAE", "Singapore", "Australia", "Japan"]) {
+    for (const expected of ["India", "Pakistan", "United States", "Canada", "United Kingdom", "Netherlands", "France", "Saudi Arabia", "Malaysia", "Australia", "Czech Republic", "Vietnam", "Norway", "Portugal"]) {
       expect(names).toContain(expected);
     }
   });
@@ -108,20 +108,20 @@ describe("randomTraderCount", () => {
 
   it("caches independently per country", () => {
     const us = GLOBE_HOTSPOTS.find((h) => h.countryCode === "US")!;
-    const jp = GLOBE_HOTSPOTS.find((h) => h.countryCode === "JP")!;
+    const ca = GLOBE_HOTSPOTS.find((h) => h.countryCode === "CA")!;
     const usValue = randomTraderCount(us);
-    const jpValue = randomTraderCount(jp);
+    const caValue = randomTraderCount(ca);
     expect(randomTraderCount(us)).toBe(usValue);
-    expect(randomTraderCount(jp)).toBe(jpValue);
+    expect(randomTraderCount(ca)).toBe(caValue);
   });
 });
 
 describe("resolveTraderCount: live data always wins over a cached fallback", () => {
   it("switches to the live value immediately once liveStats has the country, even after fallback was already cached", () => {
-    const hotspot = GLOBE_HOTSPOTS.find((h) => h.countryCode === "SG")!;
+    const hotspot = GLOBE_HOTSPOTS.find((h) => h.countryCode === "MY")!;
     const fallback = resolveTraderCount(hotspot, new Map());
     expect(fallback).toBeGreaterThanOrEqual(hotspot.traderRange[0]);
-    const live = resolveTraderCount(hotspot, new Map([["SG", 775]]));
+    const live = resolveTraderCount(hotspot, new Map([["MY", 775]]));
     expect(live).toBe(775);
   });
 });
