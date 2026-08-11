@@ -1200,16 +1200,23 @@ function TradingGlobePlaceholder() {
   );
 }
 
-// Was 1800/3200 — the globe only needed to come within 1800px of the
-// viewport to trigger its first-time boot: parsing its whole JS chunk,
-// creating a brand-new WebGL context, and generating the earth texture on
-// a canvas, all synchronously in one burst. A fast/long scroll session
-// covers that in well under a second, so that heavy one-time boot could
-// fire while the page was still mid-scroll.
-const GLOBE_INIT_MARGIN_PX = 500;
-const GLOBE_DESKTOP_INIT_MARGIN_PX = 800;
+// Was 1800/3200 originally, then tightened to 500/800 to stop the heavy
+// first-time boot from landing mid-fast-scroll. That fixed the crash, but
+// with so little lead time the globe often wasn't finished loading (JS
+// chunk parse + new WebGL context + canvas texture generation) by the
+// time it actually scrolled into view — showing as "coming in late." The
+// scroll-settle gate below (isScrollSettled) is what actually prevents the
+// heavy boot from landing mid-scroll, so it's safe to give this more lead
+// time again without reintroducing that crash.
+const GLOBE_INIT_MARGIN_PX = 1100;
+const GLOBE_DESKTOP_INIT_MARGIN_PX = 1600;
 const GLOBE_REVEAL_MARGIN_PX = 150;
-const GLOBE_REVEAL_TRANSITION = "opacity 400ms ease-out";
+// Was 400ms — combined with the margins above being small, the globe would
+// finish loading right as it scrolled into view and then visibly fade in
+// over the following 400ms, reinforcing the "late" feeling. With more lead
+// time it should usually already be ready before it's on screen, so this
+// is now just a quick flash-guard rather than a deliberate fade.
+const GLOBE_REVEAL_TRANSITION = "opacity 120ms ease-out";
 // Was 400px: the globe's WebGL canvas stayed on frameloop="always" for a
 // full 400px of scroll before/after it was on screen — real GPU/main-thread
 // work happening while the user is still actively scrolling past it.
