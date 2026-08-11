@@ -1854,10 +1854,7 @@ function Pricing() {
               >
                 <svg width="14" height="16" viewBox="0 0 14 16" fill="none" className="ml-[2px]"><path d="M1 1L13 8L1 15V1Z" fill="white" /></svg>
               </motion.div>
-              <div className="flex flex-col gap-[2px]">
-                <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-white text-[14px]">See how it works</p>
-                <p className="font-['Inter:Regular',sans-serif] font-normal text-[#8a90a3] text-[12px]">2 min video</p>
-              </div>
+              <p className="font-['Inter:Semi_Bold',sans-serif] font-semibold text-white text-[14px]">See how it works</p>
               <div className="hidden lg:flex items-end gap-[3px] absolute right-[16px] bottom-[14px] h-[28px]" aria-hidden="true">
                 {[6, 12, 18, 24, 14, 20, 10].map((h, i) => (
                   <motion.div
