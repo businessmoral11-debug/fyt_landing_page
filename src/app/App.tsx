@@ -21,6 +21,7 @@ import { HERO_CONTENT, KEY_METRICS, NAV_LINKS, FOOTER_COLUMNS, FOOTER_LINKS, FAQ
 import { PROMO_ITEMS, PROMO_DEADLINE, formatCountdown, type PromoItem } from "@/app/data/promoBanner";
 import { countryFlagUrl } from "@/app/api/rewardsApi";
 import { bootIntercom, toggleIntercomMessenger, subscribeIntercomVisibility } from "@/app/intercom";
+import { pauseHeavyScenesForNav } from "@/app/three/scenePause";
 const loadGlobe = () => import("@/app/globe");
 const loadRecentVerifiedRewards = () => import("@/app/recentVerifiedRewards");
 const loadFeaturedCertificates = () => import("@/app/featuredCertificates");
@@ -596,16 +597,25 @@ function PromoBanner() {
 }
 
 
+// The radar sweep's implementation was rebuilt below to be iOS-safe (single
+// element, no blur filter, ~1/4 the layer area of the original — see the
+// comment on the sweep-arm block). Flip to false again only if you need to
+// rule it out during future debugging; the animation/timing logic itself
+// (HERO_SWEEP_CSS, per-label glow keyframes) is unchanged from before.
+const HERO_RADAR_ENABLED = true;
+
 function HeroStage({
   labelScale = 1,
   mobileLabels = false,
   beamSuffix = "",
   beamReachScale = 1,
+  sweepPaused = false,
 }: {
   labelScale?: number;
   mobileLabels?: boolean;
   beamSuffix?: string;
   beamReachScale?: number;
+  sweepPaused?: boolean;
 }) {
   return (
     <>
@@ -654,11 +664,11 @@ function HeroStage({
             >
               {label}
             </p>
-            <div className={`${glowClass} absolute inset-0 flex flex-col ${items} gap-[12px]`} style={{ opacity: 0 }} aria-hidden>
-              <div className="rounded-full shrink-0" style={{ width: 10, height: 10, background: "#3B82F6", boxShadow: "0px 0px 14px 3px #3B82F6" }} />
+            <div className={`${glowClass} absolute inset-0 flex flex-col ${items} gap-[12px]`} style={{ opacity: 0, animationPlayState: sweepPaused ? "paused" : "running", display: HERO_RADAR_ENABLED ? undefined : "none" }} aria-hidden>
+              <div className="rounded-full shrink-0" style={{ width: 10, height: 10, background: "#ffffff", boxShadow: "0px 0px 16px 4px rgba(255,255,255,0.9)" }} />
               <p
                 className={`font-['DM_Sans',sans-serif] font-medium ${textSizeClass} tracking-[-0.44px] text-white`}
-                style={{ textShadow: "0px 0px 12px rgba(124,176,255,0.55)", textAlign }}
+                style={{ textShadow: "0px 0px 16px rgba(255,255,255,0.85)", textAlign }}
               >
                 {label}
               </p>
@@ -667,55 +677,44 @@ function HeroStage({
         );
       })}
 
-      <div
-        className="absolute"
-        style={{
-          width: 1720, height: 1720, left: -140, top: -140,
-          WebkitMaskImage: "linear-gradient(180deg, #000 0%, #000 64%, transparent 70%)",
-          maskImage: "linear-gradient(180deg, #000 0%, #000 64%, transparent 70%)",
-        }}
-      >
+      {HERO_RADAR_ENABLED && (
+        // Lightweight rebuild of the radar sweep. The original heavy
+        // version stacked three separately blurred (filter: blur(6px)) and
+        // masked panels inside an oversized 1720x1720px layer — that
+        // combination (large size + blur filter + mask-image + animation,
+        // times three) is a known iOS Safari GPU-crash pattern. A follow-up
+        // attempt using conic-gradient + mask-image avoided the crash but
+        // rendered with hard, aliased edges on-device instead of a soft
+        // fade — mask-image doesn't anti-alias reliably in combination with
+        // conic-gradient across browsers. This version drops mask-image
+        // entirely: a single radial-gradient, which has smooth built-in
+        // falloff on its own, shaped into a narrow cone that visually
+        // originates from the exact center pivot.
         <div
           className={`absolute hero-sweep-arm${beamSuffix}`}
-          style={{ width: 1720, height: 1720, left: 0, top: 0, transformOrigin: "50% 50%" }}
+          style={{
+            width: 900 * beamReachScale, height: 900 * beamReachScale,
+            left: 720 - (450 * beamReachScale), top: 720 - (450 * beamReachScale),
+            transformOrigin: "50% 50%",
+            animationPlayState: sweepPaused ? "paused" : "running",
+          }}
         >
-          <div
-            className="absolute"
-            style={{ width: 1720, height: 1720, left: 0, top: 0, transform: `scale(${beamReachScale})`, transformOrigin: "860px 860px" }}
-          >
-          <div
-            className="absolute"
-            style={{
-              width: 700, height: 1020, left: 510, top: 530,
-              background: "radial-gradient(ellipse 260px 480px at 50% 36.27%, rgba(124,176,255,0.14) 0%, rgba(59,130,246,0.06) 45%, rgba(10,36,80,0) 72%)",
-              filter: "blur(6px)",
-              WebkitMaskImage: "linear-gradient(180deg, transparent 0px, transparent 330px, #000 370px, #000 100%)",
-              maskImage: "linear-gradient(180deg, transparent 0px, transparent 330px, #000 370px, #000 100%)",
-            }}
-          />
+          {/* Rotate:0 baseline points DOWN — "Rewards on Demand" (rotate: 0
+              in heroOrbit.ts) sits below the node, not above it — so this
+              cone's tip sits at the wrapper's center (50%,50%) and it
+              extends toward the bottom, matching that baseline. */}
           <div
             className="absolute"
             style={{
-              width: 520, height: 1020, left: 600, top: 500,
-              background: "radial-gradient(ellipse 170px 440px at 50% 39.22%, rgba(207,226,255,0.4) 0%, rgba(124,176,255,0.22) 38%, rgba(59,130,246,0.08) 62%, rgba(10,36,80,0) 85%)",
-              filter: "blur(6px)",
-              WebkitMaskImage: "linear-gradient(180deg, transparent 0px, transparent 360px, #000 400px, #000 100%)",
-              maskImage: "linear-gradient(180deg, transparent 0px, transparent 360px, #000 400px, #000 100%)",
+              left: "50%", top: "50%",
+              width: 220 * beamReachScale, height: 400 * beamReachScale,
+              transform: "translateX(-50%)",
+              background:
+                "radial-gradient(ellipse 50% 100% at 50% 0%, rgba(255,255,255,0.92) 0%, rgba(207,226,255,0.62) 16%, rgba(124,176,255,0.36) 40%, rgba(59,130,246,0.16) 65%, transparent 85%)",
             }}
           />
-          <div
-            className="absolute"
-            style={{
-              width: 320, height: 895, left: 700, top: 565,
-              background: "radial-gradient(ellipse 90px 380px at 50% 37.43%, rgba(255,255,255,0.72) 0%, rgba(207,226,255,0.38) 32%, rgba(59,130,246,0.12) 58%, rgba(10,36,80,0) 82%)",
-              filter: "blur(6px)",
-              WebkitMaskImage: "linear-gradient(180deg, transparent 0px, transparent 295px, #000 335px, #000 100%)",
-              maskImage: "linear-gradient(180deg, transparent 0px, transparent 295px, #000 335px, #000 100%)",
-            }}
-          />
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Node ring + core node with FYT logo (spec: 134px ring at 653,653; 96px node at 672,672) */}
       <div className="absolute rounded-full border border-[rgba(255,255,255,0.09)]" style={{ width: 134, height: 134, left: 653, top: 653 }} />
@@ -733,7 +732,7 @@ function HeroStage({
   );
 }
 
-function HeroStageMobile() {
+function HeroStageMobile({ sweepPaused = false }: { sweepPaused?: boolean }) {
   const scale = useHeroStageScale();
   return (
     <div
@@ -745,7 +744,7 @@ function HeroStageMobile() {
         transformOrigin: "50% 100%",
       }}
     >
-      <HeroStage labelScale={heroLabelScale(scale)} mobileLabels beamSuffix="-mobile" beamReachScale={1.8} />
+      <HeroStage labelScale={heroLabelScale(scale)} mobileLabels beamSuffix="-mobile" beamReachScale={1.55} sweepPaused={sweepPaused} />
     </div>
   );
 }
@@ -821,18 +820,40 @@ function TrustStripDesktop() {
 }
 
 function HeroBackground() {
+  // The radar sweep below (.hero-sweep-arm) is a pure CSS animation with
+  // `infinite alternate` — nothing was ever pausing it, so unlike every
+  // other heavy visual on this page (globe, hero WebGL scene, promo
+  // marquee) it kept rotating/repainting for the entire session even
+  // minutes after you'd scrolled far away from the hero. A large layer with
+  // blur + mask-image that never stops costs real, permanent GPU/compositor
+  // overhead that just accumulates as you keep scrolling through the rest
+  // of the page. Pause it via IntersectionObserver like the marquee already
+  // does.
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [nearViewport, setNearViewport] = useState(true);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => setNearViewport(!!entries[0]?.isIntersecting), {
+      rootMargin: "200px 0px 200px 0px",
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <div className="absolute inset-0 overflow-hidden pointer-events-none bg-black" aria-hidden>
-      <style>{HERO_SWEEP_CSS}</style>
+    <div ref={containerRef} className="absolute inset-0 overflow-hidden pointer-events-none bg-black" aria-hidden>
+      {HERO_RADAR_ENABLED && <style>{HERO_SWEEP_CSS}</style>}
 
       <HeroSceneGate />
 
       {/* Fixed 1440×1080 stage centered horizontally; scene coords are spec px */}
       <div className="absolute left-1/2 top-0 hidden lg:block" style={{ width: 1440, height: 1080, transform: "translateX(-50%)" }}>
-        <HeroStage />
+        <HeroStage sweepPaused={!nearViewport} />
       </div>
 
-      <HeroStageMobile />
+      <HeroStageMobile sweepPaused={!nearViewport} />
 
       {/* Vignette (spec: radial at 50% 62%) */}
       <div
@@ -843,23 +864,46 @@ function HeroBackground() {
   );
 }
 
+const HERO_WORD_REVEAL_CSS = `
+@keyframes hero-word-in {
+  from { transform: translateY(115%); opacity: 0; }
+  to { transform: translateY(0%); opacity: 1; }
+}
+.hero-word-in {
+  display: inline-block;
+  animation: hero-word-in 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+  will-change: transform, opacity;
+}
+`;
+let heroWordRevealStyleInjected = false;
+
 function RevealWords({ text }: { text: string }) {
   const reduceMotion = useReducedMotion();
+  // Moved off Framer Motion's JS-driven spring and onto a plain CSS
+  // @keyframes animation. The headline reveal fires right at page load,
+  // the exact moment the main thread is also busy with hydration, the
+  // radar sweep starting up, the marquee, and everything else initializing
+  // at once — a JS animation has to keep recalculating each frame on that
+  // same busy thread, while a CSS animation is handed off to the browser's
+  // compositor and keeps running smoothly even if the main thread is
+  // briefly congested. The stagger/timing/easing feel is unchanged.
+  useEffect(() => {
+    if (heroWordRevealStyleInjected || typeof document === "undefined") return;
+    heroWordRevealStyleInjected = true;
+    const style = document.createElement("style");
+    style.textContent = HERO_WORD_REVEAL_CSS;
+    document.head.appendChild(style);
+  }, []);
   if (reduceMotion) return <>{text}</>;
   const words = text.split(" ");
   return (
     <>
       {words.map((word, i) => (
         <span key={i} className="inline-block overflow-hidden align-top pb-[0.1em] -mb-[0.1em]">
-          <motion.span
-            className="inline-block"
-            initial={{ y: "115%", opacity: 0 }}
-            animate={{ y: "0%", opacity: 1 }}
-            transition={{ duration: 0.65, delay: 0.1 + i * 0.055, ease: [0.16, 1, 0.3, 1] }}
-          >
+          <span className="hero-word-in" style={{ animationDelay: `${0.1 + i * 0.055}s` }}>
             {word}
             {i < words.length - 1 ? " " : ""}
-          </motion.span>
+          </span>
         </span>
       ))}
     </>
@@ -880,6 +924,10 @@ function HeroCta({
       rel={rel}
       onMouseMove={magnet.onMouseMove}
       onMouseLeave={magnet.onMouseLeave}
+      onClick={() => {
+        // See src/app/three/scenePause.ts for why this exists.
+        if (href.startsWith("#")) pauseHeavyScenesForNav();
+      }}
       style={{ ...style, x: magnet.style.x, y: magnet.style.y }}
       whileHover={{ scale: 1.035 }}
       whileTap={{ scale: 0.97 }}
@@ -912,10 +960,14 @@ const HeroTrustindexWidget = memo(function HeroTrustindexWidget() {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    let cancelled = false;
-    let attempts = 0;
-    const intervalId = window.setInterval(() => {
-      attempts += 1;
+    // Was setInterval polling every 200ms for up to 8s — that's real,
+    // recurring main-thread work landing in the exact window where the
+    // headline is also animating in. MutationObserver is event-driven: it
+    // costs nothing until the third-party script actually changes the DOM,
+    // instead of checking on a timer whether anything happened yet.
+    let done = false;
+    const tryPatch = () => {
+      if (done) return;
       const strongs = container.querySelectorAll(".ti-widget strong");
       for (const el of strongs) {
         if (/reviews/i.test(el.textContent || "")) {
@@ -924,19 +976,19 @@ const HeroTrustindexWidget = memo(function HeroTrustindexWidget() {
           node.style.fontSize = "14px";
           node.style.fontWeight = "600";
           node.style.letterSpacing = "0.01em";
-          window.clearInterval(intervalId);
+          done = true;
+          observer.disconnect();
           return;
         }
       }
-      if (cancelled || attempts > 40) window.clearInterval(intervalId);
-    }, 200);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
     };
+    const observer = new MutationObserver(tryPatch);
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
+    tryPatch();
+    return () => observer.disconnect();
   }, []);
 
-  return <div ref={containerRef} className="max-w-full overflow-x-hidden" />;
+  return <div ref={containerRef} className="max-w-full overflow-x-hidden min-h-[32px] lg:min-h-[36px]" />;
 });
 
 const HERO_TRUSTINDEX_MOBILE_LOADER_SRC = "https://cdn.trustindex.io/loader.js?789d2d278999828b52568075d8b";
@@ -959,14 +1011,16 @@ const HeroTrustindexMobileWidget = memo(function HeroTrustindexMobileWidget() {
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    let cancelled = false;
-    let attempts = 0;
-    const intervalId = window.setInterval(() => {
-      attempts += 1;
+    // Same fix as the desktop widget above — MutationObserver instead of a
+    // 200ms setInterval poll running during the busy hero-load window.
+    let done = false;
+    const tryPatch = () => {
+      if (done) return;
       const widget = container.querySelector(".ti-widget");
       const strong = widget?.querySelector(".ti-fade-container strong");
       if (widget && strong && !widget.querySelector(".fyt-ti-review-count")) {
-        window.clearInterval(intervalId);
+        done = true;
+        observer.disconnect();
         const span = document.createElement("span");
         span.className = "fyt-ti-review-count";
         span.style.fontSize = "13px";
@@ -980,17 +1034,15 @@ const HeroTrustindexMobileWidget = memo(function HeroTrustindexMobileWidget() {
         const style = document.createElement("style");
         style.textContent = `.ti-widget[data-pid="789d2d278999828b52568075d8b"] .ti-header strong{font-size:13px;font-weight:600}.ti-widget[data-pid="789d2d278999828b52568075d8b"] .ti-header{padding:8px 10px}.ti-widget[data-pid="789d2d278999828b52568075d8b"] .fyt-ti-review-count{font-size:13px;font-weight:600}`;
         widget.prepend(style);
-        return;
       }
-      if (cancelled || attempts > 40) window.clearInterval(intervalId);
-    }, 200);
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
     };
+    const observer = new MutationObserver(tryPatch);
+    observer.observe(container, { childList: true, subtree: true, characterData: true });
+    tryPatch();
+    return () => observer.disconnect();
   }, []);
 
-  return <div ref={containerRef} className="max-w-full overflow-x-hidden" />;
+  return <div ref={containerRef} className="max-w-full overflow-x-hidden min-h-[26px]" />;
 });
 
 function HeroTrustindexGate() {
