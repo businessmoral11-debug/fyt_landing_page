@@ -924,6 +924,14 @@ export default function HeroScene() {
       dpr={[1, 1.5]}
       gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
       camera={{ position: [0, 0, 8], fov: 50 }}
+      onCreated={({ gl }) => {
+        // Without this, a lost WebGL context leaves the canvas permanently
+        // black — the browser only attempts to restore a context whose loss
+        // event was preventDefault()'d.
+        const canvasEl = gl.domElement;
+        canvasEl.addEventListener("webglcontextlost", (e) => e.preventDefault(), false);
+        canvasEl.addEventListener("webglcontextrestored", () => gl.forceContextRestore?.(), false);
+      }}
     >
       <ambientLight intensity={0.13} color="#2b4270" />
       <hemisphereLight args={["#fff3e2", "#141c34", 0.16]} />
