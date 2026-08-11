@@ -32,6 +32,7 @@ import {
   type GlobeHotspot,
 } from "@/app/data/globeConfig";
 import { fetchGlobeStats } from "@/app/api/globeStatsApi";
+import { isLowPowerDevice } from "@/app/three/perf";
 
 const GLOBE_PERF_ENABLED =
   import.meta.env.DEV || (typeof location !== "undefined" && new URLSearchParams(location.search).has("globePerf"));
@@ -590,6 +591,7 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const fullyReady = globeReady && precompiled;
 
+  const [lowPower] = useState(() => isLowPowerDevice());
   const [liveStats, setLiveStats] = useState<ReadonlyMap<string, number>>(() => new Map());
   useEffect(() => {
     let cancelled = false;
@@ -626,11 +628,18 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
           <Canvas
             flat
             camera={{ position: [0, 0, 300], fov: 42 }}
-            dpr={[1, typeof window !== "undefined" && window.innerWidth < 768 ? 1.5 : 1.75]}
-            gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+            dpr={[1, lowPower ? 1.15 : typeof window !== "undefined" && window.innerWidth < 768 ? 1.5 : 1.75]}
+            gl={{ antialias: !lowPower, alpha: true, powerPreference: "high-performance" }}
             frameloop={active ? "always" : "demand"}
-            onCreated={() => {
+            onCreated={({ gl }) => {
               if (GLOBE_PERF_ENABLED) performance.mark("globe:canvas-created");
+              // Without this, a lost WebGL context (which a fast/heavy
+              // scroll can trigger on some iPhones) leaves the canvas
+              // permanently black — the browser only attempts to restore a
+              // context whose loss event was preventDefault()'d.
+              const canvasEl = gl.domElement;
+              canvasEl.addEventListener("webglcontextlost", (e) => e.preventDefault(), false);
+              canvasEl.addEventListener("webglcontextrestored", () => gl.forceContextRestore?.(), false);
             }}
           >
             <ambientLight intensity={0.9} />
@@ -643,6 +652,10 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
                 enabled={active}
                 enableZoom={false}
                 enablePan={false}
+                // On touch/low-power devices, dragging on the globe to
+                // rotate it fights with the page's own scroll gesture —
+                // keep auto-rotate, drop manual drag so scroll always wins.
+                enableRotate={!lowPower}
                 enableDamping
                 dampingFactor={0.08}
                 rotateSpeed={0.45}
