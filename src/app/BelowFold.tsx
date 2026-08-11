@@ -1351,7 +1351,7 @@ function ClosingCta() {
     <div className="bg-[#070810] relative shrink-0 w-full">
       <div className="flex flex-col gap-[32px] lg:gap-[40px] items-center px-[20px] py-[64px] lg:px-[80px] lg:py-[120px] w-full max-w-[1280px] mx-auto">
         <h2 className="font-['DM_Sans',sans-serif] text-[#eef0f6] text-[28px] lg:text-[44px] leading-[1.15] tracking-[-0.02em] text-center">
-          <span className="font-semibold">Join a Growing Global Community Trading </span>
+          <span className="font-semibold">Join a Growing Global Trading Community </span>
           <span className="font-normal text-[0.85em]">with FYT.</span>
         </h2>
         <TradingGlobeSlot />

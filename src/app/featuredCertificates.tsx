@@ -8,6 +8,10 @@ const RESUME_DELAY_MS = 1500;
 const CARD_WIDTH_PX = 262;
 const CARD_GAP_PX = 16;
 
+function withSessionCacheBust(url: string, token: string): string {
+  return `${url}${url.includes("?") ? "&" : "?"}v=${token}`;
+}
+
 function useCertificatesFeed() {
   const [items, setItems] = useState<PublicCertificate[]>([]);
   const [page, setPage] = useState(0);
@@ -17,6 +21,7 @@ function useCertificatesFeed() {
   const [error, setError] = useState(false);
   const seenIdsRef = useRef<Set<string>>(new Set());
   const inFlightRef = useRef(false);
+  const cacheBustTokenRef = useRef<string>(String(Date.now()));
 
   const loadPage = useCallback(async (targetPage: number) => {
     if (inFlightRef.current) return;
@@ -24,7 +29,9 @@ function useCertificatesFeed() {
     if (targetPage > 1) setLoadingMore(true);
     try {
       const res = await fetchFeaturedCertificates(targetPage, CERTS_PAGE_SIZE);
-      let data = res.data.filter((c) => !seenIdsRef.current.has(c.certificateId));
+      let data = res.data
+        .filter((c) => !seenIdsRef.current.has(c.certificateId))
+        .map((c) => ({ ...c, imageUrl: withSessionCacheBust(c.imageUrl, cacheBustTokenRef.current) }));
       if (targetPage === 1 && data.length > 0) {
         const leadIndex = Math.floor(Date.now() / (4 * 60 * 60 * 1000)) % data.length;
         data = [...data.slice(leadIndex), ...data.slice(0, leadIndex)];

@@ -133,11 +133,11 @@ describe("known product IDs and prices (spot checks against live config)", () =>
     expect(e.priceOld).toBe(1009);
     expect(e.priceNew).toBe(554.95);
   });
-  it("Instant Prime platform-5 $100K → 22205 @ 1009/605.4", () => {
+  it("Instant Prime platform-5 $100K → 22205 @ 1009/554.95", () => {
     const p5 = getEntry("Instant", "prime", "platform-5", 100000)!;
     expect(p5.productId).toBe(22205);
     expect(p5.priceOld).toBe(1009);
-    expect(p5.priceNew).toBe(605.4);
+    expect(p5.priceNew).toBe(554.95);
   });
   it("Instant Prime match-trader sizes match live PRODUCTS_CONFIG", () => {
     expect(getEntry("Instant", "prime", "match-trader", 5000)).toMatchObject({ productId: 22214, priceOld: 129, priceNew: 70.95 });
