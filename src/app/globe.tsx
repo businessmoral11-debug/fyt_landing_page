@@ -659,10 +659,7 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
                 enabled={active}
                 enableZoom={false}
                 enablePan={false}
-                // On touch/low-power devices, dragging on the globe to
-                // rotate it fights with the page's own scroll gesture —
-                // keep auto-rotate, drop manual drag so scroll always wins.
-                enableRotate={!lowPower}
+                enableRotate
                 enableDamping
                 dampingFactor={0.08}
                 rotateSpeed={0.45}
