@@ -17,6 +17,8 @@ import imgPlatform5Logo from "@/assets/live-site/platform-logos/platform-5.png";
 import { STEP_PLANS, STEP_SIZES, getEntry, checkoutUrl, fmtSize, planFlag, PLATFORM_OPTIONS, type StepId, type PlanId, type PlatformId } from "@/app/data/pricing";
 import { HERO_CONTENT, KEY_METRICS, FOOTER_COLUMNS, FOOTER_LINKS, FAQ_ITEMS, TRUSTINDEX_WIDGET } from "@/app/data/liveSiteContent";
 import { openIntercomMessenger } from "@/app/intercom";
+import { onHeavySceneNavPause, isHeavySceneNavPauseActive, pauseHeavyScenesForNav } from "@/app/three/scenePause";
+import { isScrollSettled } from "@/app/three/scrollActivity";
 const loadGlobe = () => import("@/app/globe");
 const loadRecentVerifiedRewards = () => import("@/app/recentVerifiedRewards");
 const loadFeaturedCertificates = () => import("@/app/featuredCertificates");
@@ -259,6 +261,12 @@ function HeroCta({
       rel={rel}
       onMouseMove={magnet.onMouseMove}
       onMouseLeave={magnet.onMouseLeave}
+      onClick={() => {
+        // See src/app/three/scenePause.ts — a same-page anchor jump triggers
+        // the site's fast native scroll-behavior:smooth animation, which can
+        // outrun the WebGL scenes' own IntersectionObserver-based pausing.
+        if (href.startsWith("#")) pauseHeavyScenesForNav();
+      }}
       style={{ ...style, x: magnet.style.x, y: magnet.style.y }}
       whileHover={{ scale: 1.035 }}
       whileTap={{ scale: 0.97 }}
@@ -1192,11 +1200,20 @@ function TradingGlobePlaceholder() {
   );
 }
 
-const GLOBE_INIT_MARGIN_PX = 1800;
-const GLOBE_DESKTOP_INIT_MARGIN_PX = 3200;
+// Was 1800/3200 — the globe only needed to come within 1800px of the
+// viewport to trigger its first-time boot: parsing its whole JS chunk,
+// creating a brand-new WebGL context, and generating the earth texture on
+// a canvas, all synchronously in one burst. A fast/long scroll session
+// covers that in well under a second, so that heavy one-time boot could
+// fire while the page was still mid-scroll.
+const GLOBE_INIT_MARGIN_PX = 500;
+const GLOBE_DESKTOP_INIT_MARGIN_PX = 800;
 const GLOBE_REVEAL_MARGIN_PX = 150;
 const GLOBE_REVEAL_TRANSITION = "opacity 400ms ease-out";
-const GLOBE_ACTIVE_MARGIN_PX = 400;
+// Was 400px: the globe's WebGL canvas stayed on frameloop="always" for a
+// full 400px of scroll before/after it was on screen — real GPU/main-thread
+// work happening while the user is still actively scrolling past it.
+const GLOBE_ACTIVE_MARGIN_PX = 150;
 /**
  * Mobile only: once scrolled this far past the globe, fully unmount its
  * WebGL Canvas instead of just pausing its render loop. `active`/
@@ -1241,19 +1258,34 @@ function TradingGlobeSlot() {
       setShouldInit(true);
       return;
     }
+    let retryTimer: number | undefined;
+    const tryInit = () => {
+      // Don't boot the globe's heavy first-time load (new JS chunk + new
+      // WebGL context + canvas texture generation, all synchronous) while
+      // the page is still actively scrolling — whether that's a same-page
+      // CTA jump (scenePause) or an ordinary finger-drag/momentum scroll
+      // (scrollActivity). Wait for it to settle so that burst of work lands
+      // on an idle main thread instead of one that's mid-scroll.
+      if (isHeavySceneNavPauseActive() || !isScrollSettled()) {
+        retryTimer = window.setTimeout(tryInit, 150);
+        return;
+      }
+      if (import.meta.env.DEV) performance.mark("globe:init-trigger");
+      preloadGlobeChunkOnce();
+      setShouldInit(true);
+      observer.disconnect();
+    };
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0]?.isIntersecting) {
-          if (import.meta.env.DEV) performance.mark("globe:init-trigger");
-          preloadGlobeChunkOnce();
-          setShouldInit(true);
-          observer.disconnect();
-        }
+        if (entries[0]?.isIntersecting) tryInit();
       },
       { rootMargin: `0px 0px ${isDesktop ? GLOBE_DESKTOP_INIT_MARGIN_PX : GLOBE_INIT_MARGIN_PX}px 0px` },
     );
     observer.observe(el);
-    return () => observer.disconnect();
+    return () => {
+      observer.disconnect();
+      if (retryTimer) window.clearTimeout(retryTimer);
+    };
   }, [shouldInit, isDesktop]);
 
   useEffect(() => {
@@ -1283,12 +1315,22 @@ function TradingGlobeSlot() {
       setIsActive(true);
       return;
     }
-    const observer = new IntersectionObserver((entries) => setIsActive(!!entries[0]?.isIntersecting), {
-      rootMargin: `${GLOBE_ACTIVE_MARGIN_PX}px 0px ${GLOBE_ACTIVE_MARGIN_PX}px 0px`,
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (isHeavySceneNavPauseActive()) {
+          setIsActive(false);
+          return;
+        }
+        setIsActive(!!entries[0]?.isIntersecting);
+      },
+      { rootMargin: `${GLOBE_ACTIVE_MARGIN_PX}px 0px ${GLOBE_ACTIVE_MARGIN_PX}px 0px` },
+    );
     observer.observe(el);
     return () => observer.disconnect();
   }, [shouldInit]);
+
+  // Instant pause on a hero CTA click — see scenePause.ts.
+  useEffect(() => onHeavySceneNavPause(() => setIsActive(false)), []);
 
   useEffect(() => {
     if (isDesktop || !shouldInit) return;
@@ -2462,6 +2504,7 @@ function HowItWorksCta() {
   return (
     <a
       href="#challenge"
+      onClick={() => pauseHeavyScenesForNav()}
       className="cta-shine flex items-center gap-[10px] px-[32px] py-[16px] rounded-[999px] shrink-0 no-underline"
       style={PILL_CTA_GRADIENT_STYLE}
     >
@@ -3226,7 +3269,7 @@ function Testimonials() {
         </div>
         <div className="content-stretch flex flex-col items-center px-[20px] pb-[48px] pt-[40px] lg:px-[88px] lg:pb-[120px] lg:pt-[64px] relative w-full">
           <motion.div variants={TESTIMONIAL_CTA_REVEAL} initial={prefersReducedMotion ? false : "hidden"} animate={revealed ? "show" : "hidden"}>
-            <a href="#challenge" className="bg-[#3b82f6] flex items-center justify-center px-[32px] py-[14px] rounded-[8px] shrink-0 no-underline">
+            <a href="#challenge" onClick={() => pauseHeavyScenesForNav()} className="bg-[#3b82f6] flex items-center justify-center px-[32px] py-[14px] rounded-[8px] shrink-0 no-underline">
               <p className="font-['Inter:Medium',sans-serif] font-medium text-[16px] leading-[19px] text-white whitespace-nowrap">Join 19,000+ Traders</p>
             </a>
           </motion.div>
