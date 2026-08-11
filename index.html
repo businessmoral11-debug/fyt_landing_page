@@ -61,6 +61,12 @@
     <link rel="preconnect" href="//rewards.fundingyourtrades.com" crossorigin />
     <link rel="dns-prefetch" href="//flagcdn.com" />
     <link rel="preconnect" href="//flagcdn.com" crossorigin />
+    <!-- The hero's Trustindex review badge loads via this CDN; without a
+         preconnect the browser only starts the DNS/TLS handshake once the
+         script tag itself is parsed, adding a visible delay before the
+         badge appears. -->
+    <link rel="dns-prefetch" href="//cdn.trustindex.io" />
+    <link rel="preconnect" href="//cdn.trustindex.io" crossorigin />
 
     <link
       rel="preload"
