@@ -611,8 +611,8 @@ export function TradingGlobe({ onReady, active = true }: { onReady?: () => void;
   }, [fullyReady]);
 
   return (
-    <div className="relative w-full rounded-[20px] overflow-hidden" style={{ border: "1px solid rgba(77,163,255,0.15)", boxShadow: "0 24px 60px -28px rgba(0,0,0,0.6)" }}>
-      <div className="rounded-[20px] overflow-hidden aspect-[2/1] min-h-[280px] sm:min-h-0 relative w-full bg-[#05070d]">
+    <div className="relative w-full rounded-[20px] overflow-visible" style={{ border: "1px solid rgba(77,163,255,0.15)", boxShadow: "0 24px 60px -28px rgba(0,0,0,0.6)" }}>
+      <div className="rounded-[20px] overflow-visible aspect-[2/1] min-h-[280px] sm:min-h-0 relative w-full bg-[#05070d]">
         <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
           <div className="absolute inset-0 opacity-[0.02] mix-blend-overlay" style={{ backgroundImage: NOISE_BG }} />
         </div>
